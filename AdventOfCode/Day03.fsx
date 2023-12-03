@@ -1,4 +1,6 @@
-﻿open System
+﻿#time
+
+open System
 open System.IO
 open System.Text.RegularExpressions
 let inputDir = "./AdventOfCode/inputs"
@@ -21,7 +23,7 @@ let getNumbers (x: string) =
     
     
 
-let rec getParts (schema: string array) =
+let getParts (schema: string array) =
     let chars = schema |> Array.map (fun x -> x.ToCharArray())
             
     schema
@@ -62,12 +64,45 @@ let rec getParts (schema: string array) =
         )
     
         
+let getGears (schema: string array) =
+    let chars = schema |> Array.map (fun x -> x.ToCharArray())
+            
+    schema
+    |> Array.mapi (fun i row -> (i, getNumbers row |> Array.ofSeq))
+    |> Array.collect (fun (rowIndex,numbers) ->
+        numbers
+        |> Array.collect (fun (colIndex, number) ->
+            let numS = string number
+            
+            seq {
+                for i in [rowIndex-1 ..rowIndex+1] do
+                    //!!! numS.Length!
+                    for j in [colIndex-1 ..colIndex+numS.Length] do
+                        if i > 0 && j > 0 && i < chars.Length && j < chars[i].Length  then
+                            let ch = chars[i][j]
+                            if ch = '*' then
+                                yield (i, j, Int32.Parse number)
+            }
+            |> Array.ofSeq))        
           
-
-seq {
-    while reader.EndOfStream |> not do
-        yield reader.ReadLine()
-}
-|> Array.ofSeq
-|> getParts
-|> Array.sum
+let inputGrid =
+    seq {
+        while reader.EndOfStream |> not do
+            yield reader.ReadLine()
+    }
+    |> Array.ofSeq
+    
+printfn "part1: %A" (inputGrid |> getParts |> Array.sum)    
+printfn "part2: %A"
+    (inputGrid
+     |> getGears
+     |> Array.groupBy (fun (i,j, _) -> i,j)
+     |> Array.choose (fun (_, values) ->
+         if values.Length = 2 then
+             let numbers = values |> Array.map (fun (_,_,n) -> n)
+             Some (numbers[0] * numbers[1])
+         else
+             None
+         )
+     |> Array.sum
+     )
