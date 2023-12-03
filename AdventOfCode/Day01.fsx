@@ -1,7 +1,7 @@
 ﻿open System
 open System.IO
 let inputDir = "./AdventOfCode/inputs"
-let input = "day01"
+let input = "input01"
 use file = File.OpenRead(Path.Join(inputDir, input))
 use reader = new StreamReader(file)
 
