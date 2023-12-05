@@ -59,9 +59,8 @@ let scratchCardsWon (card: string) =
         Set.intersect winningNumbers elfsNumbers
     points.Count
     
-    
-let cardCounts : int array = Array.zeroCreate cards.Length
-[0..cardCounts.Length - 1] |> List.iter (fun i -> cardCounts[i] <- 1)
+
+let cardCounts = Array.init cards.Length (fun _ -> 1)
 
 
 cards
@@ -79,8 +78,3 @@ cards
 
 cardCounts
 |> Array.sum
-
-
-
-
-        
