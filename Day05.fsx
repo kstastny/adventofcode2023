@@ -1,4 +1,4 @@
-﻿#time
+﻿#time "on"
 
 open System
 open System.IO
@@ -42,22 +42,23 @@ let inputArray =
     |> Array.ofSeq
     
 let seeds = parseSeeds inputArray[0]
-
+    
 let maps =
-    seq {
-        //TODO without mutable
-        let mutable mapName = ""
-        for row in (inputArray[1..] |> Array.where (String.IsNullOrWhiteSpace >> not)) do
-            if row.Contains "map" then
-                mapName <- row
-            else
-                (mapName, row)
-    }
-    |> Seq.groupBy (fun (mapName, _) -> mapName)
+    inputArray[2..] |> Array.where (String.IsNullOrWhiteSpace >> not)
+    |> Array.mapFold (fun currentMap row ->
+        if row.Contains "map" then
+            None, row
+        else
+            Some (currentMap, row), currentMap        
+        ) ""
+    |> fst
+    |> Seq.choose id
+    |> Seq.groupBy fst
     |> Seq.map (fun (mapName,maps) ->
             mapName.Replace(" map:", ""), (maps |> Seq.map snd |> Array.ofSeq |> parseMap)
         )
-    |> Map.ofSeq
+    |> Map.ofSeq    
+    
     
 let seedToSoil = maps |> Map.find "seed-to-soil"    
 let soilToFertilizer = maps |> Map.find "soil-to-fertilizer"    
@@ -76,6 +77,11 @@ let seedToLocation =
     >> lightToTemperature
     >> temperatureToHumidity
     >> humidityToLocation
+    
+seeds
+|> Array.Parallel.map seedToLocation
+|> Array.min
+|> printfn "PART 1: %A"     
 
 let minOfPairs (start, count) =
     let min =
@@ -84,6 +90,8 @@ let minOfPairs (start, count) =
         |> Seq.min
     printfn $"min of %i{start} is %i{min}"
     min
+    
+   
     
 
 let seedPairs =
@@ -96,7 +104,7 @@ let seedPairs =
     |> Array.choose id
 
     
-seedPairs
-|> Array.Parallel.map minOfPairs
-|> Array.min
-|> printfn "PART 2: %A"
+// seedPairs
+// |> Array.Parallel.map minOfPairs
+// |> Array.min
+// |> printfn "PART 2: %A"
