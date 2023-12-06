@@ -3,7 +3,7 @@
 open System
 open System.IO
 
-let inputDir = "./AdventOfCode/inputs"
+let inputDir = "./inputs"
 let input = "input05"
 //let input = "testData05"
 use file = File.OpenRead(Path.Join(inputDir, input))

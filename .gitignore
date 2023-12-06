@@ -14,4 +14,4 @@ release.sh
 *.DotSettings.user
 appsettings.Development.json
 TestResults/
-/AdventOfCode/inputs
+inputs

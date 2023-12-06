@@ -4,7 +4,7 @@ open System
 open System.IO
 open System.Text.RegularExpressions
 
-let inputDir = "./AdventOfCode/inputs"
+let inputDir = "./inputs"
 let input = "input06"
 //let input = "testData06"
 use file = File.OpenRead(Path.Join(inputDir, input))
