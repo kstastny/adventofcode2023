@@ -45,72 +45,37 @@ let nodeMap =
         
 let path = inputArray[0].ToCharArray()
 
-
-// PART 1
-//TODO without mutable
-// let mutable node = (nodeMap |> Map.find "AAA")
-// let mutable stepIndex = 0
-// while node.Label <> "ZZZ" do
-//      let direction = path[stepIndex % path.Length]
-//      //printfn $"stepIndex = %i{stepIndex}, node = %A{node}, direction = %A{direction}"
-//      
-//      node <-
-//          match direction with
-//          | 'L' -> nodeMap |> Map.find node.Left
-//          | 'R' -> nodeMap |> Map.find node.Right
-//          | _ -> failwith "wrong direction"
-//      stepIndex <- stepIndex + 1
-//          
-// printfn $"Steps taken: %i{stepIndex + 1}"         
-
-
-//
-// Seq.unfold (fun (node, stepIndex) ->
-//     let direction = path[stepIndex % path.Length]
-//     
-//     let nextNode =
-//         match direction with
-//         | 'L' -> nodeMap |> Map.find node.Left
-//         | 'R' -> nodeMap |> Map.find node.Right
-//     
-//     Some (nextNode, stepIndex + 1)    
-//     )
-//     ((nodeMap |> Map.find "AAA") 0)
-
-// seq { 0..Int32.MaxValue }
-// |> Seq.mapf (fun node stepIndex ->
-//     let direction = path[stepIndex % path.Length]
-//     
-//     let nextNode =
-//         match direction with
-//         | 'L' -> nodeMap |> Map.find node.Left
-//         | 'R' -> nodeMap |> Map.find node.Right
-//     
-//     nextNode        
-//     )
-//  
-//  (nodeMap |> Map.find "AAA")
-
-
-//PART 2
-let mutable nodes = (nodeMap |> Map.values) |> Array.ofSeq |> Array.where (fun x -> x.Label.EndsWith "A")
-
-printfn $"nodes = %A{nodes |> Array.map _.Label}"
-//
-// let visitedSets = HashSet<string>()
-// visitedSets.Add(nodes |> Array.map _.Label |> (fun x -> String.Join(",", x)))
-
 let nextNode (n: Node) direction =
     match direction with
      | 'L' -> nodeMap |> Map.find n.Left
      | 'R' -> nodeMap |> Map.find n.Right
      | _ -> failwith "wrong direction"
+
+
+// PART 1
+//TODO without mutable
+let mutable node = (nodeMap |> Map.find "AAA")
+let mutable stepIndex = 0
+while node.Label <> "ZZZ" do
+     let direction = path[stepIndex % path.Length]
+     //printfn $"stepIndex = %i{stepIndex}, node = %A{node}, direction = %A{direction}"
      
+     node <-  nextNode node direction
+     stepIndex <- stepIndex + 1
+         
+printfn $"PART 1: %i{stepIndex}"         
+
+
+//PART 2
+let nodes = (nodeMap |> Map.values) |> Array.ofSeq |> Array.where (fun x -> x.Label.EndsWith "A")
+
+// printfn $"nodes = %A{nodes |> Array.map _.Label}"
      
 let isTargetNode (n: Node) = n.Label.EndsWith "Z"     
      
-//TODO
-let indices =
+
+//TODO without mutable
+let endNodeIndices =
     nodes
     |> Array.Parallel.map (fun startNode ->
         let mutable node = startNode
@@ -128,102 +93,41 @@ let indices =
         |> Seq.take 2
         |> Array.ofSeq
         )
-    
-printfn "path length: %i" path.Length
 
-indices[0] |> Array.pairwise
-|> Array.map (fun (x,y) -> y - x)
-
+//how many steps it takes to reach next targetNode    
 let differences =
-    indices
+    endNodeIndices
     |> Array.map (fun x ->
         x
         |> Array.map (fun x -> x + 1 )
         |> Array.pairwise
         |> Array.map (fun (x,y) -> y - x)
         |> Array.head
+        |> int64
     )
 
-indices[0][0]    
-indices[0][1]    
-indices[0][2]    
+let factors (n: int64) =
+    seq {
+        for x in seq { 1L..(n/2L) } do
+            if n % x = 0 then
+                yield x
+        yield n
+    }
     
-    
-differences
-|> Array.map int64
-|> Array.fold (*) 1L
-
-let sets = 
-    indices
-    |> Array.map Set.ofArray
-
-let factors = 
-
-// 1087727835
-let it: int = 1222348107
-
-float it / float differences[0]
-
-let aaa = 20513 * 12083 * 14893 * 19951 * 22199 * 17141
-
-float aaa / float differences[0]
-
-
-let xxx = 73L * 43L * 53L * 71L * 79L * 61L * 281L //result
-
-
-differences|> Array.map (fun x -> xxx % int64 x = 0L)
-
-
 (*
-All the factors of 20513 :
-1, 73, 281, 20513
-
-All the factors of 12083 :
-1, 43, 281, 12083
-
-All the factors of 14893 :
-1, 53, 281, 14893
-
-All the factors of 19951 :
-1, 71, 281, 19951
-
-All the factors of 22199 :
-1, 79, 281, 22199
-
-All the factors of 17141 :
-1, 61, 281, 17141
-*)
-
-
+Solving PART 2
+ - for each start node, find regularity in reaching end nodes (turns out there are loops so the differences are always the same)
+ - find out when all the periods will match - smallest number divisible by all periods
+    - do this by finding out all factors and multiplying the unique factors
+*)    
     
+let uniqueFactors =
+    differences
+    |> Array.collect (fun x ->
+        //skip the last factor, we just wants what is composed from
+        let f = x |> factors |> Array.ofSeq
+        f[1..f.Length - 2]
+        )
+    |> Array.distinct
     
-    
-sets |> Array.map (fun x -> x |> Set.maxElement) |> Array.max   
-
-// sets[1..]
-// |> Array.fold Set.intersect sets[0]
-
-Set.intersectMany sets
-
-let mutable stepIndex = 0
-while nodes |> Array.exists (fun x -> x.Label.EndsWith "Z" |> not) do
-     let direction = path[stepIndex % path.Length]
-     //printfn $"stepIndex = %i{stepIndex}, nodes = %A{nodes |> Array.map _.Label}, direction = %A{direction}"
-     
-     if stepIndex % 100000 = 0 then
-        printfn $"stepIndex = %i{stepIndex}, nodes = %A{nodes |> Array.map _.Label}, direction = %A{direction}"
-     
-     
-     nodes <-
-         nodes
-         |> Array.map (fun n ->
-            match direction with
-             | 'L' -> nodeMap |> Map.find n.Left
-             | 'R' -> nodeMap |> Map.find n.Right
-             | _ -> failwith "wrong direction"             
-             )
-         
-     stepIndex <- stepIndex + 1
-         
-printfn $"Steps taken: %i{stepIndex + 1}"    
+printfn $"PART 2: %A{uniqueFactors |> Array.fold (*) 1L}"
