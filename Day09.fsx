@@ -39,23 +39,23 @@ let differences (x: int64 array) =
     |> Array.map (fun (x,y) -> y - x)
 
     
-//let reportValues = inputArray[0]    
-let nextValue (reportValues: int64 array) =
-    //TODO without mutable
-    let mutable current = reportValues
-    
-    let intermediateArrays =
+//let reportValues = inputArray[0]
+
+let intermediateArrays reportValues = 
+    let rec loop arr =
         seq {
-            yield reportValues
-            while current |> Array.forall (fun i -> i = 0L) |> not do
-                current <- current |> differences
-                yield current 
+            yield arr
+            if arr |> Array.forall (fun i -> i = 0L) |> not then
+                yield! arr |> differences |> loop
         }
-        |> Array.ofSeq
-        
+    reportValues |> loop |> Array.ofSeq        
+
+let nextValue (reportValues: int64 array) =
+    
+    let interArrays = reportValues |> intermediateArrays
     
     let tails =
-        intermediateArrays
+        interArrays
         |> Array.map Array.last
         |> Array.rev
         
@@ -70,22 +70,13 @@ let nextValue (reportValues: int64 array) =
     nextValue
     
     
-let reportValues = inputArray[2]    
+//let reportValues = inputArray[2]    
 let previous (reportValues: int64 array) =
-    //TODO without mutable
-    let mutable current = reportValues
-    
-    let intermediateArrays =
-        seq {
-            yield reportValues
-            while current |> Array.forall (fun i -> i = 0L) |> not do
-                current <- current |> differences
-                yield current 
-        }
-        |> Array.ofSeq
+
+    let interArrays = reportValues |> intermediateArrays
     
     let heads =
-        intermediateArrays
+        interArrays
         |> Array.map Array.head
         |> Array.rev
         
@@ -111,8 +102,3 @@ inputArray
 |> Array.map previous
 |> Array.sum
 |> printfn "PART 2: %A"
-  
-    
-        
-    
-    
