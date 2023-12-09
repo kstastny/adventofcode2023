@@ -119,6 +119,7 @@ Solving PART 2
  - for each start node, find regularity in reaching end nodes (turns out there are loops so the differences are always the same)
  - find out when all the periods will match - smallest number divisible by all periods
     - do this by finding out all factors and multiplying the unique factors
+    - in reality we are finding least common multiple, there are better approaches (see wiki https://en.wikipedia.org/wiki/Least_common_multiple)
 *)    
     
 let uniqueFactors =
