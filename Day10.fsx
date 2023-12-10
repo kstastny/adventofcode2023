@@ -27,9 +27,9 @@ let cellType = function
 
 
 
-//let file = File.OpenRead("inputs/input10")
+let file = File.OpenRead("inputs/input10")
 //let file = File.OpenRead("inputs/testData10")
-let file = File.OpenRead("inputs/testData10b") // 4 enclosed
+//let file = File.OpenRead("inputs/testData10b") // 4 enclosed
 //let file = File.OpenRead("inputs/testData10c") // 8 enclosed
 //let file = File.OpenRead("inputs/testData10d") // 10
 
@@ -108,6 +108,11 @@ let connectingHorizontally row x y =
     connectingPipes
         ((row,x),inputGrid[row][x])
         ((row,y),inputGrid[row][y])
+        
+let connectingVertically column x y =
+    connectingPipes
+        ((x, column),inputGrid[x][column])
+        ((y, column),inputGrid[y][column])        
     
     
 let visited = HashSet<int * int>()
@@ -214,7 +219,7 @@ let intervals2 row (x: int array) =
 
 
     
-let t =     
+let horizontalIntervals =     
     visited
     |> Seq.groupBy fst
     |> Seq.map (fun (row, c) ->
@@ -222,7 +227,7 @@ let t =
         )
     |> Array.ofSeq
     
-t
+horizontalIntervals
 |> Array.map (fun (row, rowIntervals) ->
         row, rowIntervals
         |> Array.pairwise
@@ -240,54 +245,270 @@ t
 
 //TODO collect "possibly enclosed" in ROWS, THEN dtto for COLUMNS
     
-//handle row
-t
-|> Seq.map (fun (row,columns) ->
-    row,
-    columns
-    |> Array.pairwise
-    |> Array.mapi (fun i ((s1,e1),(s2,e2)) ->
-            if i % 2 = 0 then
-                //take those that are not part of pipes
-                [e1..s2]
-                |> List.where (fun col -> visited.Contains(row, col) |> not)
-                |> List.length
-            else
-                0
-        )    
-    
-    )
-|> Array.ofSeq
-|> Array.where (fun (_, cols) -> cols |> Array.sum > 0) //for checking results
-
-|> Array.map snd
-|> Array.collect id
-|> Array.sum
+// //handle row
+// t
+// |> Seq.map (fun (row,columns) ->
+//     row,
+//     columns
+//     |> Array.pairwise
+//     |> Array.mapi (fun i ((s1,e1),(s2,e2)) ->
+//             if i % 2 = 0 then
+//                 //take those that are not part of pipes
+//                 [e1..s2]
+//                 |> List.where (fun col -> visited.Contains(row, col) |> not)
+//                 |> List.length
+//             else
+//                 0
+//         )    
+//     
+//     )
+// |> Array.ofSeq
+// |> Array.where (fun (_, cols) -> cols |> Array.sum > 0) //for checking results
+//
+// |> Array.map snd
+// |> Array.collect id
+// |> Array.sum
 
 //inputGrid[0].Length
 
+let intervalsColumn col (x: int array) =
+    if x.Length = 0 then
+        Array.empty
+    else
+        seq {
+            let mutable iStart = x |> Array.head
+            let mutable iEnd = x |> Array.head
+            for n in x[1..] do
+                //if n = iEnd + 1 then
+                if connectingVertically col iEnd n then
+                    iEnd <- n
+                else
+                    yield iStart, iEnd
+                    iStart <- n
+                    iEnd <- n
+            yield iStart, iEnd
+        }
+        |> Array.ofSeq  
 
+let verticalIntervals =     
+    visited
+    |> Seq.groupBy snd
+    |> Seq.map (fun (col, c) ->
+        col, c |> Seq.map fst |> Array.ofSeq |> Array.sort |> intervalsColumn col
+        )
+    |> Array.ofSeq
+    
 
 //TODO collect "possibly enclosed" in ROWS, THEN dtto for COLUMNS
     
-t
-|> Seq.map (fun (row,columns) ->
-    row,
-    columns
-    |> Array.pairwise
-    |> Array.mapi (fun i ((s1,e1),(s2,e2)) ->
-            if i % 2 = 0 then
-                //take those that are not part of pipes
-                [e1..s2]
-                |> List.where (fun col -> visited.Contains(row, col) |> not)
-            else
-                List.empty
-        )    
-    
-    )
-|> Array.ofSeq
-|> Array.where (fun (_, cols) -> cols |> Array.sum > 0) //for checking results
+let possibleFromRows =    
+    horizontalIntervals
+    |> Seq.map (fun (row,columns) ->
+        columns
+        |> Array.where (fun (x,y) -> x = y)
+        |> Array.pairwise
+        |> Array.mapi (fun i ((s1,e1),(s2,e2)) ->
+                if i % 2 = 0 then
+                    //take those that are not part of pipes
+                    [e1..s2]
+                    |> List.where (fun col -> visited.Contains(row, col) |> not)
+                    |> List.map (fun col -> row, col)
+                    |> Array.ofList
+                else
+                    Array.empty
+            )
+        |> Array.concat
+        )
+    |> Array.ofSeq
+    |> Array.concat
 
-|> Array.map snd
-|> Array.collect id
-|> Array.sum
+
+let possibleFromCols =
+    verticalIntervals
+    |> Seq.map (fun (col,rows) ->
+        rows
+        |> Array.where (fun (x,y) -> x = y)
+        |> Array.pairwise
+        |> Array.mapi (fun i ((s1,e1),(s2,e2)) ->
+                if i % 2 = 0 then
+                    //take those that are not part of pipes
+                    [e1..s2]
+                    |> List.where (fun row -> visited.Contains(row, col) |> not)
+                    |> List.map (fun row -> row, col)
+                    |> Array.ofList
+                else
+                    Array.empty
+            )
+        |> Array.concat
+        )
+    |> Array.ofSeq
+    |> Array.concat    
+
+
+let possibleFromColsS = possibleFromCols |> set 
+let possibleFromRowsS = possibleFromRows |> set
+
+let s = Set.intersect possibleFromColsS possibleFromRowsS
+s.Count //does not work
+
+//TODO https://stackoverflow.com/questions/217578/how-can-i-determine-whether-a-2d-point-is-within-a-polygon
+
+let horMap = horizontalIntervals |> Map.ofArray
+let verMap = verticalIntervals |> Map.ofArray
+
+
+// let count =
+//     seq {
+//         for i in [0 ..inputGrid.Length - 1] do
+//             match horMap |> Map.tryFind i with
+//             | Some interval ->
+//                 for j in [0 ..inputGrid[0].Length - 1] do
+//                     let hits =
+//                         if visited.Contains(i,j) |> not then
+//                             let h = 
+//                                 interval
+//                                 |> Array.where (fun (iStart, iEnd) -> iEnd < j )
+//                                 |> Array.collect (fun (iStart, iEnd) -> [|iStart; iEnd |])
+//                                 |> Array.distinct
+//                             if i = 1 && j = 10 then
+//                                 printfn $"hits = %A{h}"
+//                             h |> Array.length
+//                         else
+//                             0
+//                             
+//                     if hits % 2 = 1 then
+//                         printfn $"{i}, {j}, hits = {hits}"
+//                         yield i,j
+//             | None -> ()
+//     }
+//     |> Array.ofSeq
+//
+// let count2 =
+//     seq {
+//         for i in [0 ..inputGrid.Length - 1] do
+//             for j in [0 ..inputGrid[0].Length - 1] do
+//             match verMap |> Map.tryFind j with
+//             | Some interval ->
+//                     let hits =
+//                         if visited.Contains(i,j) |> not then
+//                             let h = 
+//                                 interval
+//                                 |> Array.where (fun (iStart, iEnd) -> iEnd < i )
+//                                 |> Array.collect (fun (iStart, iEnd) -> [|iStart; iEnd |])
+//                                 |> Array.distinct
+//                             if i = 1 && j = 10 then
+//                                 printfn $"hits = %A{h}"
+//                             h |> Array.length
+//                         else
+//                             0
+//                             
+//                     if hits % 2 = 1 then
+//                         printfn $"{i}, {j}, hits = {hits}"
+//                         yield i,j
+//             | None -> ()
+//     }
+//     |> Array.ofSeq
+//     
+// let aaa = Set.intersect (set count) (set count2)
+// aaa.Count
+
+// let count3 =
+//     seq {
+//         for i in [0 ..inputGrid.Length - 1] do
+//             match horMap |> Map.tryFind i with
+//             | Some interval ->
+//                 for j in [0 ..inputGrid[0].Length - 1] do
+//                     let hits =
+//                         if visited.Contains(i,j) |> not then
+//                             let h = 
+//                                 interval
+//                                 |> Array.map snd
+//                                 |> Array.where (fun x -> x < j )
+//                             h |> Array.length
+//                         else
+//                             0
+//                             
+//                     if hits % 2 = 1 && hits < interval.Length then
+//                         printfn $"{i}, {j}, hits = {hits}"
+//                         yield i,j
+//             | None -> ()
+//     }
+//     |> Array.ofSeq
+//
+// count3 |> Array.length
+//
+// let count4 =
+//     seq {
+//         for i in [0 ..inputGrid.Length - 1] do
+//             for j in [0 ..inputGrid[0].Length - 1] do
+//             match verMap |> Map.tryFind j with
+//             | Some interval ->
+//                     let hits =
+//                         if visited.Contains(i,j) |> not then
+//                             let h = 
+//                                 interval
+//                                 |> Array.map fst
+//                                 |> Array.where (fun x -> x < i )
+//                             h |> Array.length
+//                         else
+//                             0
+//                             
+//                     if hits % 2 = 1 then
+//                         printfn $"{i}, {j}, hits = {hits}"
+//                         yield i,j
+//             | None -> ()
+//     }
+//     |> Array.ofSeq
+//     
+// let aaa = Set.intersect (set count3) (set count4)
+// aaa.Count
+
+
+let bothCornersNorthOrBothSouth cell1 cell2 =
+    match cell1, cell2 with
+    | NorthEast, NorthWest -> true
+    | NorthWest, NorthEast -> true
+    | SouthEast, SouthWest -> true
+    | SouthWest, SouthEast -> true
+    //TODO this is incorrect, depends on what is there 
+    // | Animal, _ -> true
+    // | _, Animal -> true
+
+    //input data - animal is NORTH WEST TODO determine animal position automatically
+    | Animal, NorthEast -> true
+    | NorthEast, Animal -> true        
+    
+    | _ -> false
+
+
+
+let count5 =
+    seq {
+        for i in [0 ..inputGrid.Length - 1] do
+            match horMap |> Map.tryFind i with
+            | Some interval ->
+                for j in [0 ..inputGrid[0].Length - 1] do
+                    let hits =
+                        if visited.Contains(i,j) |> not then
+                            let h = 
+                                interval
+                                |> Array.where (fun (iStart, iEnd) ->
+                                    iEnd < j
+                                    && (iStart = iEnd
+                                        || (bothCornersNorthOrBothSouth (inputGrid[i][iStart]) (inputGrid[i][iEnd])) |> not)
+                                    )
+                            h |> Array.length
+                        else
+                            0
+                            
+                    if hits % 2 = 1 && hits < interval.Length then
+                        //printfn $"{i}, {j}, hits = {hits}"
+                        yield i,j
+            | None -> ()
+    }
+    |> Array.ofSeq
+    
+
+// 521 is too low
+count5.Length
+
