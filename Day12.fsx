@@ -60,63 +60,101 @@ let permutations (conditions: string) (groups: int array) =
         groupSum - currentHashes
     //choose generatedHashCount positions from questionMarks    
     //printfn $"Calculating permutations for {questionMarks} over {generatedHashCount}"
-    let maxGroup = groups |> Array.max
+    //let maxGroup = groups |> Array.max
     
-    let canInsertDot (consecutiveHashes: int) =
-        consecutiveHashes = 0 ||
-        groups |> Array.exists (fun i -> i = consecutiveHashes)
+    //NOTE: consecutive hashes BEFORE inserting this new character. groupIndex is for the NEW group, yet not built
+    let canInsertDot (consecutiveHashes: int) groupIndex justCompletedGroup =
+        justCompletedGroup
+        || consecutiveHashes = 0
+        //|| groups |> Array.exists (fun i -> i = consecutiveHashes) //I do not want this - this would match any group!
+        || groupIndex >= groups.Length //all groups done
+       // || consecutiveHashes >= groups[groupIndex] //building group TODo this is wrong
+        //|| consecutiveHashes > 0 && consecutiveHashes //building group because justCompletedGroup is false
         
-    let canInsertHash (consecutiveHashes: int) =
-        consecutiveHashes < maxGroup
+    let canInsertHash (consecutiveHashes: int) groupIndex justCompletedGroup =
+        justCompletedGroup |> not &&
+        groupIndex < groups.Length && consecutiveHashes < groups[groupIndex] //we are building new group specified by groupIndex
     
-    //let rec loop n r li consecutiveHashes =
-    let rec loop n r li consecutiveHashes =
-        match li with
-        | [] -> []
-        | [ head ] ->
-            if head = '?' then
-                [
-                    if r = 0 then
-                        [ '.' ]
-                    if r = n then //should be 1 in this case
-                        [ '#' ]
-                ]
-            else
-                [ [ head]  ]
-        | head::tail when head = '?' ->
-            if r = 0 then
-                if canInsertDot consecutiveHashes then
-                    loop (n - 1) 0 tail 0 
-                    |> List.map (fun t -> '.'::t)
+    //n - total number to select; R - count of hashes we are selecting
+    let rec loop n r li consecutiveHashes groupIndex justCompletedGroup =
+        
+        //printfn $"perm = %A{li}"
+        
+        //inserting hash completes group, for new hashes we increase groupIndex
+        let hashCompletesGroup =
+            groupIndex < groups.Length && consecutiveHashes+1 = groups[groupIndex]
+        
+        let expanded =
+            match li with
+            | [] -> []
+            | [ head ] ->
+                if head = '?' then
+                    [
+                        if r = 0 then
+                            [ '.' ]
+                        if r = n then //should be 1 in this case
+                            [ '#' ]
+                    ]
                 else
-                    []
-            elif r = n then
-                if canInsertHash consecutiveHashes then
-                    loop (n - 1) (r - 1) tail (consecutiveHashes + 1) 
-                    |> List.map (fun t -> '#'::t)
-                else
-                    []
-            else
-                let firstDot =
-                    if canInsertDot consecutiveHashes then
-                        loop (n - 1) r tail  0
+                    [ [ head]  ]
+            | head::tail when head = '?' ->
+                if r = 0 then
+                    if canInsertDot consecutiveHashes groupIndex justCompletedGroup then
+                        loop (n - 1) 0 tail 0 groupIndex false 
                         |> List.map (fun t -> '.'::t)
                     else
                         []
-                let firstHash =
-                    if canInsertHash consecutiveHashes then
-                        loop (n - 1) (r - 1) tail (consecutiveHashes + 1) 
+                elif r = n then
+                    if canInsertHash consecutiveHashes groupIndex justCompletedGroup then
+                        let newGroupIndex = //TODO can be used every time hash is inserted
+                            if hashCompletesGroup then groupIndex + 1 else groupIndex
+                        loop (n - 1) (r - 1) tail (consecutiveHashes + 1) newGroupIndex hashCompletesGroup 
                         |> List.map (fun t -> '#'::t)
                     else
                         []
-                firstDot @ firstHash
+                else
+                    let firstDot =
+                        if canInsertDot consecutiveHashes groupIndex justCompletedGroup then
+                            loop (n - 1) r tail 0 groupIndex false
+                            |> List.map (fun t -> '.'::t)
+                        else
+                            []
+                    let firstHash =
+                        if canInsertHash consecutiveHashes groupIndex justCompletedGroup then
+                            let newGroupIndex =
+                                if hashCompletesGroup then groupIndex + 1 else groupIndex
+                            loop (n - 1) (r - 1) tail (consecutiveHashes + 1) newGroupIndex hashCompletesGroup 
+                            |> List.map (fun t -> '#'::t)
+                        else
+                            []
+                    firstDot @ firstHash
+            | '#'::tail ->
+                    if canInsertHash consecutiveHashes groupIndex justCompletedGroup then
+                        let newGroupIndex =
+                            if hashCompletesGroup then groupIndex + 1 else groupIndex
+                        loop n r tail (consecutiveHashes + 1) newGroupIndex hashCompletesGroup
+                        |> List.map (fun x -> '#'::x)
+                    else
+                        []
+            | '.'::tail ->
+                    if canInsertDot consecutiveHashes groupIndex justCompletedGroup then
+                        loop n r tail 0 groupIndex false
+                        |> List.map (fun x -> '.'::x)
+                    else
+                        []                    
+                
+            | head::tail ->
+                    //NOTE: this should not happen
+                    printfn $"SOMETHING WEIRD, unexpected character: %c{head}"
+                    let hashes = 0
+                    loop n r tail hashes groupIndex false
+                    |> List.map (fun x -> head::x)
+        // printfn $"perm = %A{li}"                    
+        // printfn $"expanded = %A{expanded}"
+        expanded
+        
             
-        | head::tail ->
-                let hashes = if head = '#' then consecutiveHashes + 1 else 0
-                loop n r tail hashes
-                |> List.map (fun x -> head::x)            
-            
-    loop questionMarks generatedHashCount condList 0
+    loop questionMarks generatedHashCount condList 0 0 false
     |> List.map (fun x -> x |> Array.ofList |> String)
     //|> List.distinct
 //
@@ -146,9 +184,36 @@ let arrangements (row: string) =
     perm
     |> Seq.where (fun x ->
         (x.ToCharArray() |> Array.where (fun y -> y = '#') |> Array.length |> int64 = expCount) &&
-        regex.IsMatch("." + x + "."))
+        regex.IsMatch("." + x + ".")
+        )
     |> Seq.toArray
     |> Seq.length
+    
+let arrangementsInvalid (row: string) =
+    let conditions, groups = parse row
+    //let groupSum = groups |> Array.sum |> int32
+    let perm = permutations conditions groups
+    
+    let expCount = groups |> Array.sum
+    
+    let regex : Regex =
+        let sb = StringBuilder()
+        for n in groups do
+            //TODO first has to be start of string or
+            sb.Append("(#){nnn}(\.)+".Replace("nnn", string n)) |> ignore
+        //sb.Remove(sb.Length - 5, 5) |> ignore
+        //let s = sb.ToString()
+        let s = "(\.)+" + sb.ToString()
+        //printfn $"regexString = %s{s}"
+        Regex(s)
+        
+    perm
+    |> Seq.where (fun x ->
+        (x.ToCharArray() |> Array.where (fun y -> y = '#') |> Array.length |> int64 = expCount) &&
+        regex.IsMatch("." + x + ".") |> not
+        )
+    |> Seq.toArray
+    
     
 let arrangements2 (conditions: string, groups) =
     
@@ -169,7 +234,7 @@ let arrangements2 (conditions: string, groups) =
         
     perm
     |> Seq.where (fun x ->
-        (x.ToCharArray() |> Array.where (fun y -> y = '#') |> Array.length |> int64 = expCount) &&
+        //(x.ToCharArray() |> Array.where (fun y -> y = '#') |> Array.length |> int64 = expCount) &&
         regex.IsMatch("." + x + "."))
     |> Seq.toArray
     |> Seq.length
@@ -180,9 +245,9 @@ let arrangements2 (conditions: string, groups) =
 // permutations conditions2 groups2    
 // let connected = inputArray[1] |> unfold2 |> arrangements2    
     
-// inputArray
-// |> Array.map arrangements
-// |> Array.sum
+inputArray
+|> Array.map arrangements
+|> Array.sum //7260
 
 (*
 
@@ -249,29 +314,44 @@ printfn $"inputArray.length = %A{inputArray.Length}"
 //TODO ..#?????????#?#???? 1,13 still problematic. new algorithm for permutations will fix it
 
 
+// let index = 89
+// let c,g = inputArray[index] |> parse 
+// permutations c g |> List.length
+// inputArray[index] |> arrangements |> int64
+//
+// // 37 permutations for index 89
+//
+// inputArray[index] |> arrangementsInvalid |> Array.length
 
 
+let c2,g2 = inputArray[index] |> unfold2
+permutations c2 g2 |> List.length
+inputArray[index] |> unfold2 |> arrangements2
 
 let stopwatch = Stopwatch()
 stopwatch.Start()
 let mutable cnt = 0
 
 inputArray
-|> Array.Parallel.mapi (fun i x ->
+|> Array.mapi (fun i x ->
     
-    //printfn $"%A{x}"
     printfn $"%A{i} started at %A{stopwatch.Elapsed}, cnt = %i{cnt}"
     let single = x |> arrangements |> int64
     let connected = x |> unfold2 |> arrangements2
+    printfn $"%A{x}, single={single}, connected={connected}"
 
     
     let res =
         single * (Math.Pow(connected/single |> float, 4) |> int64)
-    printfn $"%i{i} = {res} (single = {single}, connected = {connected})"
-    Interlocked.Increment(ref cnt) |> ignore
+    //printfn $"%i{i} = {res} (single = {single}, connected = {connected})"
+    //Interlocked.Increment(ref cnt) |> ignore //TODO this does not work
+    cnt <- cnt + 1
     res
     )
-|> Array.sum 
+|> Array.sum
+
+Int32.MaxValue
+// 1209410872943L is too low
 
 //inputArray1 full data
 (*
