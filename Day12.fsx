@@ -1,10 +1,12 @@
 ﻿#time
 
 open System
+open System.Diagnostics
 open System.Text
 open System.Collections.Generic
 open System.IO
 open System.Text.RegularExpressions
+open System.Threading
 
 //let file = File.OpenRead("inputs/input12")
 let file = File.OpenRead("inputs/testData12")
@@ -36,62 +38,12 @@ let parse (row: string) =
     conditions, (groups |> getNumbers)
     
     
-let unfold (row: string) =
-    let conditions, groups = parse row
-    $"{conditions}?{conditions}?{conditions}?{conditions}?{conditions}",
-    [|0..4|] |> Array.collect (fun _ -> groups)
-    
-    
-let unfold1Start  (row: string) =
-    let conditions, groups = parse row
-    $"{conditions}?",
-    [|0..0|] |> Array.collect (fun _ -> groups)   
-        
-let unfold1End  (row: string) =
-    let conditions, groups = parse row
-    $"?{conditions}",
-    [|0..0|] |> Array.collect (fun _ -> groups)
-    
-let unfoldValidOnEnd  (row: string) =
-    let conditions, groups = parse row
-    $"{conditions}#",
-    groups
-        
-let unfoldValidOnStart  (row: string) =
-    let conditions, groups = parse row
-    $"#{conditions}",
-    groups  
-        
-    
-let unfold1Start2  (row: string) =
-    let conditions, groups = parse row
-    let extraGroup = groups[0]
-    $"{conditions}#{conditions[0..int32 extraGroup]}",
-    [| extraGroup |] |> Array.append groups 
-    
-        
-let unfold1End2  (row: string) =
-    let conditions, groups = parse row
-    let extraGroup = groups |> Array.last
-  //  printfn $"XXX {conditions[conditions.Length - int32 extraGroup..]}"
-    $"{conditions[conditions.Length - int32 extraGroup..]}?{conditions}",
-    groups |> Array.append [| extraGroup |]
-        
-let unfold1StartEnd  (row: string) =
-    let conditions, groups = parse row
-    $"?{conditions}?",
-    [|0..0|] |> Array.collect (fun _ -> groups)   
         
 let unfold2  (row: string) =
     let conditions, groups = parse row
     $"{conditions}?{conditions}",
     [|0..1|] |> Array.collect (fun _ -> groups)
     
-let unfold3  (row: string) =
-    let conditions, groups = parse row
-    $"{conditions}?{conditions}?{conditions}",
-    [|0..2|] |> Array.collect (fun _ -> groups)    
-        
         
     
 let permutations (conditions: string) (groups: int array) =
@@ -108,12 +60,17 @@ let permutations (conditions: string) (groups: int array) =
         groupSum - currentHashes
     //choose generatedHashCount positions from questionMarks    
     //printfn $"Calculating permutations for {questionMarks} over {generatedHashCount}"
+    let maxGroup = groups |> Array.max
     
-    let 
-    
+    let canInsertDot (consecutiveHashes: int) =
+        consecutiveHashes = 0 ||
+        groups |> Array.exists (fun i -> i = consecutiveHashes)
+        
+    let canInsertHash (consecutiveHashes: int) =
+        consecutiveHashes < maxGroup
     
     //let rec loop n r li consecutiveHashes =
-    let rec loop n r li =
+    let rec loop n r li consecutiveHashes =
         match li with
         | [] -> []
         | [ head ] ->
@@ -128,55 +85,44 @@ let permutations (conditions: string) (groups: int array) =
                 [ [ head]  ]
         | head::tail when head = '?' ->
             if r = 0 then
-                loop (n - 1) 0 tail 
-                |> List.map (fun t -> '.'::t)
+                if canInsertDot consecutiveHashes then
+                    loop (n - 1) 0 tail 0 
+                    |> List.map (fun t -> '.'::t)
+                else
+                    []
             elif r = n then
-                loop (n - 1) (r - 1) tail 
-                |> List.map (fun t -> '#'::t)
+                if canInsertHash consecutiveHashes then
+                    loop (n - 1) (r - 1) tail (consecutiveHashes + 1) 
+                    |> List.map (fun t -> '#'::t)
+                else
+                    []
             else
                 let firstDot =
-                    loop (n - 1) r tail 
-                    |> List.map (fun t -> '.'::t)
+                    if canInsertDot consecutiveHashes then
+                        loop (n - 1) r tail  0
+                        |> List.map (fun t -> '.'::t)
+                    else
+                        []
                 let firstHash =
-                    loop (n - 1) (r - 1) tail 
-                    |> List.map (fun t -> '#'::t)
+                    if canInsertHash consecutiveHashes then
+                        loop (n - 1) (r - 1) tail (consecutiveHashes + 1) 
+                        |> List.map (fun t -> '#'::t)
+                    else
+                        []
                 firstDot @ firstHash
             
         | head::tail ->
-                //let hashes = if head = '#' then consecutiveHashes + 1 else 0
-                loop n r tail //hashes
+                let hashes = if head = '#' then consecutiveHashes + 1 else 0
+                loop n r tail hashes
                 |> List.map (fun x -> head::x)            
             
-        
-    condList
-    |> loop questionMarks generatedHashCount// 0
+    loop questionMarks generatedHashCount condList 0
     |> List.map (fun x -> x |> Array.ofList |> String)
     //|> List.distinct
 //
-// let conditions, groups = parse "???.### 1,1,3"
-// let sum = groups |> Array.sum
-//
-// permutations conditions (int32 sum)
-
-// let rec permutations2 (li: char list) (n: int) (r: int) =
-//     //all permutations of length with N hashes
-//     if n = 0 then
-//         [ li ]
-//     elif r = 0 then
-//         (permutations2 li (n - 1) 0)
-//         |> List.map (fun t -> '.'::t)
-//     elif r = n then
-//         (permutations2 li (n - 1) (r - 1))
-//         |> List.map (fun t -> '#'::t)    
-//     else
-//         let li1 =
-//             (permutations2 li (n - 1) r)
-//             |> List.map (fun t -> '.'::t)
-//         
-//         let li2 =
-//             (permutations2 li (n - 1) (r - 1))
-//             |> List.map (fun t -> '#'::t)
-//         li1 @ li2
+let conditions, groups = parse "???.### 1,1,3"
+// let conditions2, groups2 = unfold2 "?#?#?#?#?#?#?#? 1,3,1,6"
+// permutations conditions2 groups2
 
 
 let arrangements (row: string) =
@@ -205,8 +151,8 @@ let arrangements (row: string) =
     |> Seq.length
     
 let arrangements2 (conditions: string, groups) =
-    let groupSum = groups |> Array.sum |> int32
-    let perm = permutations conditions groupSum
+    
+    let perm = permutations conditions groups
     
     let expCount = groups |> Array.sum
     
@@ -227,7 +173,12 @@ let arrangements2 (conditions: string, groups) =
         regex.IsMatch("." + x + "."))
     |> Seq.toArray
     |> Seq.length
-    |> int64   
+    |> int64
+    
+
+// let conditions2, groups2 = unfold2 inputArray[1]
+// permutations conditions2 groups2    
+// let connected = inputArray[1] |> unfold2 |> arrangements2    
     
 // inputArray
 // |> Array.map arrangements
@@ -294,93 +245,22 @@ let arrangements2 (conditions: string, groups) =
 // inputArray[1] |> unfold1End2 |> arrangements2
 
 printfn $"inputArray.length = %A{inputArray.Length}"
-// inputArray
-// |> Array.mapi (fun i x ->
-//     
-//     let singleStart2 = x |> unfold1Start2 |> arrangements2
-//     let singleEnd2 = x |> unfold1End2 |> arrangements2
-//     
-//     //let double = x |> unfold2 |> arrangements2
-//     
-//     let conditions, groups = parse x
-//     let validStart =
-//         conditions[0] = '.' || conditions[conditions.Length - 1] = '.' ||
-//         //x |> unfoldValidOnStart |> arrangements2 > 0
-//         singleStart2 > 0
-//     let validEnd =
-//         conditions[0] = '.' || conditions[conditions.Length - 1] = '.' ||
-//         //x |> unfoldValidOnEnd |> arrangements2 > 0
-//         singleEnd2 > 0
-//     //x, single, (singleStart, singleEnd), (singleStart2, singleEnd2), singleStartEnd//, double//, triple
-//    // x, single, (singleStart, singleEnd), (validStart, validEnd), singleStartEnd//, double//, triple
-//     
-//     let res = 
-//         if validStart && validEnd then
-//             let singleStart = x |> unfold1Start |> arrangements2
-//             let singleEnd = x |> unfold1End |> arrangements2
-//             let singleStartEnd = x |> unfold1StartEnd |> arrangements2
-//             //connecting multiplies options
-//             singleStart * singleEnd * singleStartEnd * singleStartEnd * singleStartEnd
-//         else
-//             let single = x |> arrangements
-//             Math.Pow(single, 5) |> int64
-//     printfn $"%i{i} = {res}"            
-//     res
-//     
-//     // if double = singleStart * singleEnd then
-//     //     //connecting multiplies options
-//     //     singleStart * singleEnd * singleStartEnd * singleStartEnd * singleStartEnd
-//     // else
-//     //     //TODO also calculating double is too slow
-//     //     //connecting does not multiply options TODO then what?
-//     //     printfn $"SUSP: %A{x}"
-//     //     Math.Pow((x |> arrangements) |> float, 5) |> int32
-//     )
-// |> Array.sum
-//gives 1392071027153L //TOO LOW;
 
 //TODO ..#?????????#?#???? 1,13 still problematic. new algorithm for permutations will fix it
 
-// inputArray
-// |> Array.mapi (fun i x ->
-//     
-//     let singleStart = x |> unfold1Start |> arrangements2
-//     let singleEnd = x |> unfold1End |> arrangements2
-//     let singleStartEnd = x |> unfold1StartEnd |> arrangements2
-//     
-//     let double = x |> unfold2 |> arrangements2
-//     
-//     let res =     
-//         if double = singleStart * singleEnd then
-//             //connecting multiplies options
-//             singleStart * singleEnd * singleStartEnd * singleStartEnd * singleStartEnd
-//         else //TODO double gives us the ratio of two connected
-//             //TODO also calculating double is too slow
-//             //connecting does not multiply options TODO then what?
-//             let single = (x |> arrangements) 
-//             printfn $"SUSP: %A{x} (single = {single}, double = {double})"
-//             Math.Pow(single |> float, 5) |> int64
-//     printfn $"%i{i} = {res}"
-//     res
-//     )
-// |> Array.sum
 
-// let conditions, groups = inputArray[1] |> unfold2
-// let groupSum = groups |> Array.sum |> int32
-// //let perm = permutations conditions groupSum
-// let condList =
-//         conditions.ToCharArray() |> List.ofArray
-//     
-// let questionMarks = condList |> List.where (fun x -> x = '?') |> List.length
-// let generatedHashCount =
-//     let currentHashes =
-//         condList |> List.where (fun x -> x = '#') |> List.length
-//     groupSum - currentHashes
 
+
+
+let stopwatch = Stopwatch()
+stopwatch.Start()
+let mutable cnt = 0
 
 inputArray
 |> Array.Parallel.mapi (fun i x ->
     
+    //printfn $"%A{x}"
+    printfn $"%A{i} started at %A{stopwatch.Elapsed}, cnt = %i{cnt}"
     let single = x |> arrangements |> int64
     let connected = x |> unfold2 |> arrangements2
 
@@ -388,6 +268,7 @@ inputArray
     let res =
         single * (Math.Pow(connected/single |> float, 4) |> int64)
     printfn $"%i{i} = {res} (single = {single}, connected = {connected})"
+    Interlocked.Increment(ref cnt) |> ignore
     res
     )
 |> Array.sum 
