@@ -8,8 +8,8 @@ open System.IO
 open System.Text.RegularExpressions
 open System.Threading
 
-//let file = File.OpenRead("inputs/input12")
-let file = File.OpenRead("inputs/testData12")
+let file = File.OpenRead("inputs/input12")
+//let file = File.OpenRead("inputs/testData12")
 
 let reader = new StreamReader(file)
 
@@ -37,6 +37,11 @@ let parse (row: string) =
     let groups = row.Split(' ')[1]
     conditions, (groups |> getNumbers)
     
+let unfold5  (row: string) =
+    let conditions, groups = parse row
+    $"{conditions}?{conditions}?{conditions}?{conditions}?{conditions}",
+    [0..4] |> List.collect (fun _ -> groups |> List.ofArray)  
+    
     
         
 let unfold2  (row: string) =
@@ -44,7 +49,17 @@ let unfold2  (row: string) =
     $"{conditions}?{conditions}",
     [|0..1|] |> Array.collect (fun _ -> groups)
     
-        
+let unfold3  (row: string) =
+    let conditions, groups = parse row
+    $"{conditions}?{conditions}?{conditions}",
+    [|0..2|] |> Array.collect (fun _ -> groups)       
+    
+let unfold4  (row: string) =
+    let conditions, groups = parse row
+    $"{conditions}?{conditions}?{conditions}?{conditions}",
+    [|0..3|] |> Array.collect (fun _ -> groups)      
+    
+      
     
 let permutations (conditions: string) (groups: int array) =
     
@@ -245,18 +260,18 @@ let arrangements2 (conditions: string, groups) =
 // permutations conditions2 groups2    
 // let connected = inputArray[1] |> unfold2 |> arrangements2    
     
-inputArray
-|> Array.map arrangements
-|> Array.sum //7260
+// inputArray
+// |> Array.map arrangements
+// |> Array.sum //7260
 
 (*
 
     ???.### 1,1,3 - 1 arrangement
-    .??..??...?##. 1,1,3 - 16384 arrangements
+    .??..??...?##. 1,1,3 - 16384 arrangements 4x8x8x8x8
     ?#?#?#?#?#?#?#? 1,3,1,6 - 1 arrangement
-    ????.#...#... 4,1,1 - 16 arrangements
-    ????.######..#####. 1,6,5 - 2500 arrangements
-    ?###???????? 3,2,1 - 506250 arrangements
+    ????.#...#... 4,1,1 - 16 arrangements 1x4x4x4x4
+    ????.######..#####. 1,6,5 - 2500 arrangements 4*5*5*5*5
+    ?###???????? 3,2,1 - 506250 arrangements 15*15*15*15*10
 
 *)
 
@@ -314,44 +329,140 @@ printfn $"inputArray.length = %A{inputArray.Length}"
 //TODO ..#?????????#?#???? 1,13 still problematic. new algorithm for permutations will fix it
 
 
-// let index = 89
+// let index = 0
 // let c,g = inputArray[index] |> parse 
 // permutations c g |> List.length
+// let single = inputArray[index] |> arrangements |> int64
+// //
+// // // 37 permutations for index 89
+// //
+// // inputArray[index] |> arrangementsInvalid |> Array.length
+//
+//
+// let c2,g2 = inputArray[index] |> unfold5
+// permutations c2 g2 |> List.length
+//
 // inputArray[index] |> arrangements |> int64
+// inputArray[index] |> unfold3 |> arrangements2
+// inputArray[index] |> unfold4 |> arrangements2
+// inputArray[index] |> unfold5 |> arrangements2
 //
-// // 37 permutations for index 89
+// let connected = inputArray[index] |> unfold2 |> arrangements2
 //
-// inputArray[index] |> arrangementsInvalid |> Array.length
+// single
+// connected
+//
+// // real data, index 0: 42725 (unfold5), but calculation only gives 32805!
+// // single 5, unfold2 47, unfold3 455, unfold4 4409
+// single * (Math.Pow(connected/single |> float, 4) |> int64) //
+//
+// let stopwatch = Stopwatch()
+// stopwatch.Start()
+// let mutable cnt = 0
+//
+// inputArray
+// |> Array.mapi (fun i x ->
+//     
+//     printfn $"%A{i} started at %A{stopwatch.Elapsed}, cnt = %i{cnt}"
+//     let single = x |> arrangements |> int64
+//     let connected = x |> unfold2 |> arrangements2
+//     printfn $"%A{x}, single={single}, connected={connected}"
+//
+//     
+//     let res =
+//         single * (Math.Pow(connected/single |> float, 4) |> int64)
+//     //printfn $"%i{i} = {res} (single = {single}, connected = {connected})"
+//     //Interlocked.Increment(ref cnt) |> ignore //TODO this does not work
+//     cnt <- cnt + 1
+//     res
+//     )
+// |> Array.sum
 
 
-let c2,g2 = inputArray[index] |> unfold2
-permutations c2 g2 |> List.length
-inputArray[index] |> unfold2 |> arrangements2
+let rec permCount (conditions: string) (groups: int list) =
+    //printfn $"permCount %s{conditions} %A{groups}"
+    match conditions, groups with
+    | "", _::_ -> 0L
+    | _, [] ->
+        // '.' and '?' are fine
+        if conditions.IndexOf('#') > -1 then 0L else 1L
+        
+    | _, head::tail ->
+        //latestPossibleStart should be sum of ints in groups + groups.Count - 1 for differences
+        let latestPossibleStart =
+            if conditions.IndexOf('#') > -1
+                then
+                    conditions.IndexOf('#')
+                else
+                    //TODO better pruning - there has to be enough questionmarks and hashes 
+                //was conditions.Length - head
+                conditions.Length - ((groups |> List.sum) + ((groups |> List.length) - 1))
+            
+        [0..latestPossibleStart]
+        |> List.where (fun i ->
+          //  printfn "i = %i, head = %i" i head
+            let followingIndex = head + i
+            conditions.Length >= followingIndex 
+            && (conditions.Length <= followingIndex || conditions[followingIndex] = '.' || conditions[followingIndex] = '?')//next character has to be '.' to separate the groups
+            && conditions[i..(i + head - 1)].IndexOf('.') = -1 //no dots inside, so can be placed
+            ) //is valid
+        |> List.map (fun i ->
+            let nextStart = i + head + 1 //take the group and separator
+            if nextStart < conditions.Length then
+                permCount conditions[nextStart..] tail
+            else
+                //not enough data remaining to continue (if there is tail)
+                permCount "" tail)
+        //|> (fun x -> printfn "%A" x; x)
+        |> List.sum
+        
+        
+let rowCount (row: string) =
+    let conditions, groups = unfold5 row
+    permCount conditions groups
+            
 
-let stopwatch = Stopwatch()
-stopwatch.Start()
+//inputArray[0] |> rowCount
+
 let mutable cnt = 0
 
+
 inputArray
-|> Array.mapi (fun i x ->
-    
-    printfn $"%A{i} started at %A{stopwatch.Elapsed}, cnt = %i{cnt}"
-    let single = x |> arrangements |> int64
-    let connected = x |> unfold2 |> arrangements2
-    printfn $"%A{x}, single={single}, connected={connected}"
-
-    
-    let res =
-        single * (Math.Pow(connected/single |> float, 4) |> int64)
-    //printfn $"%i{i} = {res} (single = {single}, connected = {connected})"
-    //Interlocked.Increment(ref cnt) |> ignore //TODO this does not work
+|> Array.Parallel.mapi (fun i x ->
+    printfn $"%A{System.DateTime.Now}, index %i{i}: %A{x}"
+    let rowCount = rowCount x
     cnt <- cnt + 1
-    res
+    printfn $"rowCount = %A{rowCount}, cnt = {cnt}"
+    rowCount
     )
-|> Array.sum
+|> Array.sum 
+                
 
-Int32.MaxValue
-// 1209410872943L is too low
+// inputArray
+// |> Array.mapi (fun i x ->
+//     
+//     let single = x |> arrangements |> int64
+//     let connected = x |> unfold2 |> arrangements2
+//     let triple = x |> unfold3 |> arrangements2
+//     printfn $"%A{x}, single={single}, connected={connected}, triple={triple}"
+//     
+//     triple * connected
+//     
+//     )
+// |> Array.sum
+
+// 1209410872943L is too low for PART 2
+
+(*
+
+    ???.### 1,1,3 - 1 arrangement
+    .??..??...?##. 1,1,3 - 16384 arrangements 4x8x8x8x8
+    ?#?#?#?#?#?#?#? 1,3,1,6 - 1 arrangement
+    ????.#...#... 4,1,1 - 16 arrangements 1x4x4x4x4
+    ????.######..#####. 1,6,5 - 2500 arrangements 4*5*5*5*5
+    ?###???????? 3,2,1 - 506250 arrangements 15*15*15*15*10
+
+*)
 
 //inputArray1 full data
 (*
