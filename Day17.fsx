@@ -34,7 +34,7 @@ type State = { X: int ; Y: int ; EnteredFrom: Direction; StraightDistanceTravele
 // for each state - set shortest path to map. mark as "visited" (not in Dijkstra sense?)
 // find all followers and recursively call them with heatLoss so far
 
-let nextStates (grid: int array array) (state: State) =
+let nextStatesPART1 (grid: int array array) (state: State) =
     [
         if state.X - 1 >= 0 && state.EnteredFrom <> Left then
             { X = state.X - 1
@@ -63,8 +63,95 @@ let nextStates (grid: int array array) (state: State) =
     ]
     |> List.where (fun x -> x.StraightDistanceTraveled <= 3)
     
+let isInGrid (grid: int array array) (state: State) =
+    state.X >= 0 && state.Y >= 0 && state.X < grid.Length && state.Y < grid[0].Length
+    
+let nextStatesPART2 (grid: int array array) (state: State) =
+    if state.StraightDistanceTraveled < 4 then
+        //cannot turn or reverse
+        match state.EnteredFrom with
+        | Right ->
+            { X = state.X - 1
+              Y = state.Y
+              EnteredFrom = Right
+              StraightDistanceTraveled = if state.EnteredFrom = Right then state.StraightDistanceTraveled + 1 else 1
+            } |> List.singleton |> List.where (isInGrid grid) 
+        | Left ->
+            { X = state.X + 1
+              Y = state.Y
+              EnteredFrom = Left
+              StraightDistanceTraveled = if state.EnteredFrom = Left then state.StraightDistanceTraveled + 1 else 1
+            }  |> List.singleton |> List.where (isInGrid grid)
+        | Down ->
+            { X = state.X
+              Y = state.Y - 1
+              EnteredFrom = Down
+              StraightDistanceTraveled = if state.EnteredFrom = Down then state.StraightDistanceTraveled + 1 else 1
+            } |> List.singleton |> List.where (isInGrid grid)
+        | Up ->
+            { X = state.X
+              Y = state.Y + 1
+              EnteredFrom = Up
+              StraightDistanceTraveled = if state.EnteredFrom = Up then state.StraightDistanceTraveled + 1 else 1
+            }  |> List.singleton |> List.where (isInGrid grid)
+        | Start -> //same as PART1
+            [
+                if state.X - 1 >= 0 && state.EnteredFrom <> Left then
+                    { X = state.X - 1
+                      Y = state.Y
+                      EnteredFrom = Right
+                      StraightDistanceTraveled = if state.EnteredFrom = Right then state.StraightDistanceTraveled + 1 else 1
+                    }
+                if state.X + 1 < grid.Length && state.EnteredFrom <> Right then
+                    { X = state.X + 1
+                      Y = state.Y
+                      EnteredFrom = Left
+                      StraightDistanceTraveled = if state.EnteredFrom = Left then state.StraightDistanceTraveled + 1 else 1
+                    }
+                if state.Y - 1 >= 0 && state.EnteredFrom <> Up then
+                    { X = state.X
+                      Y = state.Y - 1
+                      EnteredFrom = Down
+                      StraightDistanceTraveled = if state.EnteredFrom = Down then state.StraightDistanceTraveled + 1 else 1
+                    }
+                if state.Y + 1 < grid[0].Length  && state.EnteredFrom <> Down then
+                    { X = state.X
+                      Y = state.Y + 1
+                      EnteredFrom = Up
+                      StraightDistanceTraveled = if state.EnteredFrom = Up then state.StraightDistanceTraveled + 1 else 1
+                    }                
+            ]
+    else //same as part 1 except straight distance may be higher
+    [
+        if state.X - 1 >= 0 && state.EnteredFrom <> Left then
+            { X = state.X - 1
+              Y = state.Y
+              EnteredFrom = Right
+              StraightDistanceTraveled = if state.EnteredFrom = Right then state.StraightDistanceTraveled + 1 else 1
+            }
+        if state.X + 1 < grid.Length && state.EnteredFrom <> Right then
+            { X = state.X + 1
+              Y = state.Y
+              EnteredFrom = Left
+              StraightDistanceTraveled = if state.EnteredFrom = Left then state.StraightDistanceTraveled + 1 else 1
+            }
+        if state.Y - 1 >= 0 && state.EnteredFrom <> Up then
+            { X = state.X
+              Y = state.Y - 1
+              EnteredFrom = Down
+              StraightDistanceTraveled = if state.EnteredFrom = Down then state.StraightDistanceTraveled + 1 else 1
+            }
+        if state.Y + 1 < grid[0].Length  && state.EnteredFrom <> Down then
+            { X = state.X
+              Y = state.Y + 1
+              EnteredFrom = Up
+              StraightDistanceTraveled = if state.EnteredFrom = Up then state.StraightDistanceTraveled + 1 else 1
+            }               
+    ]
+    |> List.where (fun x -> x.StraightDistanceTraveled <= 10)    
+    
 let s = { X = 0; Y = 0; EnteredFrom = Start; StraightDistanceTraveled = 0 }
-nextStates inputGrid s
+nextStatesPART2 inputGrid s
 
 let dijsktra (grid: int array array) (startX: int) (startY: int) =
     let start = { X = startX; Y = startY; EnteredFrom = Start; StraightDistanceTraveled = 0 } 
@@ -82,7 +169,7 @@ let dijsktra (grid: int array array) (startX: int) (startY: int) =
         // if visited.Count % 1000 = 0 then 
         //     printfn $"visited.Count = {visited.Count}, s = {s}"
         //printfn $"visited.Count = {visited.Count}, s = {s}"
-        for checkedState in nextStates grid s do
+        for checkedState in nextStatesPART2 grid s do
             if visited.Contains checkedState |> not then
                 unvisitedNodes.Add checkedState |> ignore
                 let distance = distances[s] + grid[checkedState.X][checkedState.Y]
