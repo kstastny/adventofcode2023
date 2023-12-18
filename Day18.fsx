@@ -2,6 +2,7 @@
 
 open System
 open System.Collections.Generic
+open System.Globalization
 open System.IO
 open System.Text.RegularExpressions
 
@@ -29,14 +30,34 @@ let parseInstructions (x: string) =
             | "D" -> Down
             | _ -> failwith "error"
         Length = parts[1] |> Int32.Parse
-        Color = parts[2][1..parts[2].Length - 2] 
+        Color = parts[2][2..parts[2].Length - 2] 
     }
+    
+//Int32.Parse("70c71", System.Globalization.NumberStyles.HexNumber)
+
+
+    
+let parseInstructions2 (x: string) =
+    let part1 = parseInstructions x
+    {
+        Direction =
+            match part1.Color[5] with
+            | '2' -> Left
+            | '0' -> Right
+            | '3' -> Up
+            | '1' -> Down
+            | x ->
+                failwithf $"error, unknown color: %A{x} from %A{part1.Color}"
+        Length = Int32.Parse(part1.Color[0..4], System.Globalization.NumberStyles.HexNumber)
+        Color = part1.Color
+    }    
 
 let reader = new StreamReader(file)
 
 let instructions =
     seq {
         while reader.EndOfStream |> not do
+            //yield reader.ReadLine() |> parseInstructions2
             yield reader.ReadLine() |> parseInstructions
     }
     |> Array.ofSeq
@@ -84,32 +105,7 @@ let intervals (x: int array) =
         }
         |> Array.ofSeq
         
-        
-    
-// /// get the insides of polygon -> returns horizontal lines where the trench is
-// let fillInsides (trench: (int*int) list) =
-//     trench
-//     |> List.groupBy fst
-//     |> List.sortBy fst
-//     |> Seq.collect (fun (row, c) ->
-//         let cols = c |> List.map snd
-//         
-//         cols
-//         |> Array.ofList
-//         |> Array.sort
-//         |> intervals
-//         |> Array.pairwise
-//         |> Array.mapi (fun i ((s1, e1), (s2,e2)) ->
-//             if i % 2 = 0 then
-//                 [|e1..s2|] |> Array.map (fun col -> (row, col))
-//             else
-//                 [||]
-//             )
-//         |> Array.collect id
-//        // |> Array.map (fun (start, e) -> ((row, start), (row,e)))
-//         )
-    
-//
+   
  /// get the insides of polygon -> returns horizontal lines where the trench is
 let breakPoints (trench: (int*int) list) =
      let trenchSet = trench |> Set.ofList
@@ -168,23 +164,47 @@ let fillInsides (trench: (int*int) list) =
         |> List.collect id
         )
     
+let insidesCounts (trench: (int*int) list) =
+    let trenchRows = trench |> List.groupBy fst |> Map.ofList
     
-    //let breakPoints = trench |> breakPoints |> Seq.groupBy fst |> Map.ofSeq
-    // trench
-    // |> List.groupBy fst
-    // |> List.sortBy fst
-    // |> Seq.collect (fun (row, c) ->
-    //     match breakPoints |> Map.tryFind row with
-    //     | None -> []
-    //     | Some p ->
-    //         p |> //get those in between
-    //    
-    //     )
-
+    trench
+    |> breakPoints
+    |> Seq.groupBy fst
+    |> Seq.sortBy fst
+    |> Seq.sumBy (fun (row, points) ->
+        let pointList = points |> List.ofSeq
+        let trenchPoints = trenchRows |> Map.find row |> set
+        //printfn $"trenchPoints = %A{trenchPoints}"
+        
+        pointList
+        |> List.map snd
+        |> List.sort
+        |> List.pairwise
+        |> List.mapi (fun i (s,e) ->
+            if i % 2 = 0 then
+                // [ s + 1 .. e - 1 ]
+                // |> List.where (fun col -> trenchPoints |> Set.contains (row, col) |> not)
+                // |> List.length
+                seq { s + 1 .. e - 1 }
+                |> Seq.sumBy (fun col ->
+                    if trenchPoints |> Set.contains (row, col) then 0L else 1L)
+            else
+                0L
+            )
+        |> List.sum
+        |> (fun x -> printfn $"%A{row} filled sum = %A{x}"; x )
+        )
     
+// trenchCoordinates |> List.length //3152 for PART 1
+// trenchCoordinates |> insidesCounts //43893 for PART 1    
+    
+trenchCoordinates
+|> insidesCounts
+|> (fun cnt -> cnt + (trenchCoordinates |> List.length |> int64)) 
 
 
-//let a = System.Console.Out
+//46213 too low, 47741 too high, 47045 just right    
+        
 
 let printTrenches (writer: TextWriter) (trenches: (int * int) list) =
     let maxY = trenches |> List.map snd |> List.max
@@ -202,47 +222,23 @@ let printTrenches (writer: TextWriter) (trenches: (int * int) list) =
             failwithf "min = %i" min
 
         let arr = Array.init (maxY + offset + 3) (fun i ->
-            if cols |> List.contains i then '#' else '.'
-            )
-        //let line = (string row) + "|" + (String(arr))
-        let line = String(arr)
+            if cols |> List.contains i then '#' else '.' )
+        //let line = String(arr)
+        let line = $"row    %A{row}: " + String(arr)
         
         writer.WriteLine(line)
-        //let r = row.ToString("f2")
-        //printfn $"%A{r}: %A{String(arr)}"
-        //printfn $"%A{r}: %A{String(arr)}"
-        //writer.WriteLine(String(arr))
         )
     
+let w = new StreamWriter(File.OpenWrite("day18-mapB.txt"))
+printTrenches w trenchCoordinates
+w.Close()
     
-trenchCoordinates
-|> fillInsides
-|> Seq.append trenchCoordinates
-|> Seq.distinct //TODO should not be needed, something is added extra
-|> Seq.sort
-|> Array.ofSeq
-|> Seq.length //46213 too low, 47741 too high, 47045 just right
-    
-// //     
-// let outFile = File.OpenWrite("day18-map.txt") |> (fun x -> new StreamWriter(x))
-// trenchCoordinates |> printTrenches outFile
-// outFile.Close()
 
-
-//
-// // trenchCoordinates |> List.last
-//
-//
-// //TODO I am building trenches incorrectly!
-// // trenchCoordinates
-// // //|> List.map (fun (x,y) -> (x, y+40))
-// // |> printTrenches outFile
-//
-// //
-//
+// part 1 original    
 // trenchCoordinates
-// //|> List.map (fun (x,y) -> (x, y+40))
 // |> fillInsides
 // |> Seq.append trenchCoordinates
-// |> Seq.distinct //TODO should not be needed, something is added extra
-// |> Seq.length
+// //|> Seq.distinct //TODO should not be needed, something is added extra (those that are trenches but also before ending breakpoint)
+// |> Seq.sort
+// |> Array.ofSeq
+// |> Seq.length //46213 too low, 47741 too high, 47045 just right
