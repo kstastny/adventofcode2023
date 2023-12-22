@@ -184,7 +184,8 @@ let d2 = d1 |> differences
 //     printfn $"%i{i}: %i{d2[i+11]-d2[i]} {d2[i+22]-d2[i+11]} {d2[i+33]-d2[i+22]} {d2[i+44]-d2[i+33]}"
     
 ////////////////////////////////////////////////    
-//TODO works for input21    
+// works for input21
+// NOTE: if I wasn't sure thanks to Reddit that there's period 131 I would never have found it. especially with test data like this (    
 let period = 131
 let pArray = 
     [|
