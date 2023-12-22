@@ -1,0 +1,68 @@
+--------- LAYER 0 ------------
+rx	:	con-cs
+--------- LAYER 1 ------------
+con-cs	:	con-hn	con-kh	con-lz	con-tg
+--------- LAYER 2 ------------
+con-hn	:	con-zv
+con-kh	:	con-sk
+con-lz	:	con-sd
+con-tg	:	con-pl
+--------- LAYER 3 ------------
+con-zv	:	flip-cm	flip-db	flip-fm	flip-gr	flip-jd	flip-px	flip-sn	flip-tx	flip-zz
+con-sk	:	flip-ds	flip-hv	flip-kz	flip-mm	flip-ms	flip-np	flip-xb
+con-sd	:	flip-bm	flip-cc	flip-dh	flip-dp	flip-jk	flip-kc	flip-rp	flip-vh
+con-pl	:	flip-bf	flip-bv	flip-dj	flip-jb	flip-jz	flip-qc	flip-ts	flip-vg
+--------- LAYER 4 ------------
+flip-cm	:	flip-tx
+flip-db	:	flip-ns
+flip-fm	:	broadcaster	con-zv
+flip-gr	:	flip-hl
+flip-jd	:	flip-sn
+flip-px	:	flip-zz
+flip-sn	:	flip-px
+flip-tx	:	flip-dx
+flip-zz	:	flip-db
+flip-ds	:	flip-xb
+flip-hv	:	broadcaster	con-sk
+flip-kz	:	flip-ds
+flip-mm	:	flip-zn
+flip-ms	:	flip-mm
+flip-np	:	flip-hh
+flip-xb	:	flip-np
+flip-bm	:	flip-dh
+flip-cc	:	flip-dp
+flip-dh	:	flip-kf
+flip-dp	:	flip-gq
+flip-jk	:	flip-cc
+flip-kc	:	broadcaster	con-sd
+flip-rp	:	flip-zk
+flip-vh	:	flip-jk
+flip-bf	:	flip-jb
+flip-bv	:	broadcaster	con-pl
+flip-dj	:	flip-qc
+flip-jb	:	flip-jz
+flip-jz	:	flip-tc
+flip-qc	:	flip-fk
+flip-ts	:	flip-dj
+flip-vg	:	flip-bs
+--------- LAYER 5 ------------
+flip-ns	:	flip-gr	con-zv
+broadcaster	:NO SOURCES
+flip-hl	:	flip-cm	con-zv
+flip-dx	:	flip-fm	con-zv
+flip-zn	:	flip-rg	con-sk
+flip-hh	:	con-sk	flip-zl
+flip-kf	:	flip-kc	con-sd
+flip-gq	:	flip-rp	con-sd
+flip-zk	:	con-sd	flip-vf
+flip-tc	:	con-pl	flip-vg
+flip-fk	:	flip-ct	con-pl
+flip-bs	:	con-pl	flip-ts
+--------- LAYER 6 ------------
+flip-rg	:	flip-kr	con-sk
+flip-zl	:	flip-ms	con-sk
+flip-vf	:	flip-bm	con-sd
+flip-ct	:	flip-bv	con-pl
+--------- LAYER 7 ------------
+flip-kr	:	flip-hv	con-sk
+--------- LAYER 8 ------------
