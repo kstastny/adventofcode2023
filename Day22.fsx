@@ -1,6 +1,7 @@
 ﻿#time
 
 open System
+open System.Collections.Generic
 open System.IO
 
 
@@ -45,11 +46,6 @@ let parseBrick i (row: string) =
         ] |> List.distinct
     }
     
-    
-// parseBrick "1,0,1~1,2,1"    
-// parseBrick "0,0,2~2,0,2"
-//parseBrick "0,2,3~2,2,2"
-
 let intersects (brick1: Brick) (brick2: Brick) =
     brick1.OccupiedSpace
     |> List.exists (fun x -> brick2.OccupiedSpace |> List.exists (fun y -> x = y))
@@ -66,12 +62,10 @@ let fallDown (bricks: Brick array) (brick: Brick) =
     let otherBricks = bricks |> Array.where (fun x -> x <> brick)
     
     let rec loop b =
-        //printfn $"%A{b}"
         let potentialPosition = b |> moveDown
         if  potentialPosition.OccupiedSpace |> List.exists (fun (_,_,z) -> z <= 0)
             || (otherBricks |> Array.exists (intersects potentialPosition))
             then
-            //    printfn $"aa %A{otherBricks |> Array.where (intersects potentialPosition)}"
                 b
         else
             loop potentialPosition
@@ -86,7 +80,6 @@ let compact (bricks:  Brick array) =
     bricks
     |> Array.sortBy (fun x -> x.OccupiedSpace |> List.map (fun (_,_,z) -> z))
     |> Array.fold (fun (newBricks: Brick array) brick ->
-        //printfn $"Falling down %A{brick.BrickNumber}"
         fallDown newBricks brick
         ) bricks
     
@@ -101,37 +94,74 @@ let getBricks filename =
     |> Seq.mapi parseBrick
     |> Array.ofSeq
     
-    
-    
 let isSupportedBy (bricks: Brick array) (brick: Brick) =
     let otherBricks = bricks |> Array.where (fun x -> x <> brick)
     let down = brick |> moveDown
     otherBricks |> Array.where (intersects down)
     
     
+let solve filename = 
 
-//let bricks = getBricks "inputs/testData22"
+    let bricks = getBricks filename
 
-let bricks = getBricks "inputs/input22"
-
-let fallenBricks = bricks |> compact
-
-
-let singleSupports = 
-    fallenBricks
-    |> Array.map (fun x -> x, isSupportedBy fallenBricks x |> Array.map (_.BrickNumber))
-    |> Array.where (fun (x, supports) -> supports.Length = 1)
-    |> Array.collect (fun (x, s) -> s)
-    |> set
+    printfn "Compacting"
+    let fallenBricks = bricks |> compact
+    printfn "Compacted"
     
-let allBricks = fallenBricks |> Array.map (fun x -> x.BrickNumber) |> set    
+
+    let supportedBy =
+        fallenBricks
+        |> Array.collect (fun x -> isSupportedBy fallenBricks x |> Array.map (fun y -> x.BrickNumber, y.BrickNumber))
+        |> Array.groupBy fst
+        |> Map.ofArray
+        |> Map.map (fun _ v -> v |> Array.map snd)
+        
+        
+    let supporting =
+        fallenBricks
+        |> Array.collect (fun x -> isSupportedBy fallenBricks x |> Array.map (fun y -> y.BrickNumber, x.BrickNumber))
+        |> Array.groupBy fst
+        |> Map.ofArray
+        |> Map.map (fun _ v -> v |> Array.map snd)
+        
+    let singleSupports =
+        supportedBy
+        |> Map.toSeq
+        |> Seq.where (fun (k, v) -> v.Length = 1)
+        |> Seq.map snd
+        |> Seq.concat
+        |> Set
+        
+    let allBricks = fallenBricks |> Array.map (_.BrickNumber) |> set
+    printfn $"PART 1: {(Set.difference allBricks singleSupports).Count}"
     
-printfn $"PART 1: {(Set.difference allBricks singleSupports).Count}"
     
-//sanity check
-// let occupiedSpace =
-//     fallenBricks
-//     |> Seq.collect (_.OccupiedSpace)
-//     |> Array.ofSeq
-//     
-// occupiedSpace.Length = (occupiedSpace |> Array.distinct |> Array.length)
+    // PART 2 for each brick, determine how many bricks would fall. Sum number of other bricks that would fall
+    supporting //if brick is not supporting anything, nothing will fall by disintegrating it
+    |> Map.toSeq
+    |> Seq.map (fun (brick, supportedBricks) ->
+        //count of supported bricks
+        let bricksToCheck = Queue<int>()
+        let fallenBricks =  HashSet<int>()
+        fallenBricks.Add brick |> ignore
+        supportedBricks |> Array.iter bricksToCheck.Enqueue
+        while bricksToCheck.Count > 0 do
+            let checkedBrick = bricksToCheck.Dequeue()
+            //is falling?
+            let checkedSupports = supportedBy |> Map.find checkedBrick
+            if checkedSupports |> Array.forall fallenBricks.Contains then
+                //is falling
+                fallenBricks.Add checkedBrick |> ignore
+                match supporting |> Map.tryFind checkedBrick with
+                | None -> ()
+                | Some s -> s |> Array.iter bricksToCheck.Enqueue
+                
+        
+        //brick, fallenBricks.Count - 1 //do not count the brick itself
+        fallenBricks.Count - 1 //do not count the brick itself
+        )
+    |> Seq.sum
+    |> printfn "PART 2: %A"
+
+solve "inputs/testData22"    
+solve "inputs/input22"    
