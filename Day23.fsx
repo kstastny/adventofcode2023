@@ -28,10 +28,11 @@ type PathSegment = {
     ConnectingCoords: (int * int) list
 }
 
-let start = (0,1)
+type Path = PathSegment list
+
 
 // returns neighbours where we can move
-let nonForestNeighbours (grid: char array array) (x: int, y: int) =
+let nonForestNeighbours1 (grid: char array array) (x: int, y: int) =
     [
         if x - 1 >= 0 && grid[x - 1][y] <> '#' && grid[x - 1][y] <> 'v' then yield x-1,y
         if x + 1 < grid.Length && grid[x + 1][y] <> '#' && grid[x + 1][y] <> '^' then yield x+1,y
@@ -39,69 +40,21 @@ let nonForestNeighbours (grid: char array array) (x: int, y: int) =
         if y + 1 < grid[0].Length && grid[x][y + 1] <> '#' && grid[x][y + 1] <> '<' then yield x,y+1
     ]
     
-nonForestNeighbours inputGrid start    
-nonForestNeighbours inputGrid (3,11)
-nonForestNeighbours inputGrid (5,3)
-
-
-// let collectPathCoordinates grid (coords: int * int) =
-//    
-//    //following path in one direction
-//    let rec followPath p c =
-//        match nonForestNeighbours grid c with
-//        | [ head ] when p |> List.contains head |> not -> followPath (head::p) head
-//        | _ -> p
-//        
-//    match nonForestNeighbours grid coords with
-//    | [ ] -> [  ]
-//    | [ head ] ->
-//        //only one direction - this is one end of path
-//        followPath [ coords ] head
-//    | [ head ; tail ] -> [] //this is middle of the path - ignore, collect from starts only TODO or it could be crossing with onedirectional entrance
-//    | head::tail ->
-//        //crossing                                    
     
-
+// PART 2    
+let nonForestNeighbours (grid: char array array) (x: int, y: int) =
+    [
+        if x - 1 >= 0 && grid[x - 1][y] <> '#' then yield x-1,y
+        if x + 1 < grid.Length && grid[x + 1][y] <> '#' then yield x+1,y
+        if y - 1 >= 0 && grid[x][y - 1] <> '#' then yield x,y-1
+        if y + 1 < grid[0].Length && grid[x][y + 1] <> '#' then yield x,y+1
+    ]    
     
-// let parsePathSegments (grid: char array array) =
-//     //coordinates of paths, except both ends of path
-//     let pathCoords = HashSet<int * int>()
-//     //
-//     // let collectPathCoordinates (coords: int * int) =
-//     //    
-//     //    //following path in one direction
-//     //    let rec followPath p c =
-//     //        match nonForestNeighbours grid c with
-//     //        | [ head ] when p |> List.contains head |> not -> loop head::p head
-//     //        | _ -> p
-//     //        
-//     //    match nonForestNeighbours grid coords with
-//     //    | [ head ] ->
-//     //        //only one direction
-//     //        followPath [ coords ] head
-//     //    | [ head ; tail ] -> ()
-//     //        //two directions 
-//     //        followPath [ coords ] tail
-//     //        followPath [ coords ] head
-//          
-//     
-//     
-//     seq {
-//         for i in [0..grid.Length] do
-//             for j in [0..grid[0].Length] do
-//                 if grid[i][j] <> '#' then //if not in forest
-//                     //follow path in both directions until we cannot go anywhere or encounter a crossing
-//                     
-//                     let pathCoords = collectPathCoordinates  
-//     }
-//     |> Seq.toArray 
-
-
 
 
     
 // assuming "coords" is always START of path(s)    
-let collectPathCoordinates2 grid (coords: int * int) : PathSegment list =
+let collectPathCoordinates grid (coords: int * int) : PathSegment list =
    
    //following path in one direction
     let rec followPath p c =
@@ -114,7 +67,6 @@ let collectPathCoordinates2 grid (coords: int * int) : PathSegment list =
         | [ head ] -> followPath (head::p) head
         | _ -> p //end of path, for whatever reason
        
-    //TODO rev each result
     let segments =
         match nonForestNeighbours grid coords with
         | [ ] -> [  ]
@@ -123,7 +75,7 @@ let collectPathCoordinates2 grid (coords: int * int) : PathSegment list =
            followPath [ head; coords ] head |> List.singleton
         | neighbours ->
            neighbours
-           |> List.map (followPath [coords])
+           |> List.map (fun x -> followPath [x; coords] x)
 
     segments    
     |> List.map (fun pathSegment ->
@@ -138,12 +90,7 @@ let collectPathCoordinates2 grid (coords: int * int) : PathSegment list =
             ConnectingCoords = coords |> List.where (fun c -> c <> start && c <> e) 
         }
         )
-//
-// let p = collectPathCoordinates2 inputGrid start
-// p |> List.head |> List.length
-// p
-// nonForestNeighbours inputGrid start
-// nonForestNeighbours inputGrid (5,3)
+
 
 let parsePathSegments (grid: char array array) (start: int * int)=
     //coordinates of paths, except both ends of path
@@ -155,7 +102,7 @@ let parsePathSegments (grid: char array array) (start: int * int)=
     seq {
         while startsToCheck.Count > 0 do
             let s = startsToCheck.Dequeue()
-            let paths = collectPathCoordinates2 grid s
+            let paths = collectPathCoordinates grid s
             yield! paths
             paths
                 |> List.where (fun p -> checkedStarts.Contains p.End |> not)
@@ -164,61 +111,70 @@ let parsePathSegments (grid: char array array) (start: int * int)=
     }
     |> List.ofSeq
     
-let segments = parsePathSegments inputGrid start
-    
-    
-type Path = PathSegment list
-
-
 // let getAllPaths (segments: PathSegment list) (start: int * int) =
 //         
 //     let segmentsByStart = segments |> List.groupBy _.Start |> Map.ofList
-//
-//     let visitedStart = HashSet<int * int>()
-//
-//     let rec loop (s: PathSegment) : Path list =
-//         if visitedStart.Contains s.End then
+//     
+//     let rec loop visitedStart (s: PathSegment) : Path list =
+//         if visitedStart |> Set.contains s.End then
 //             [ s ] |> List.singleton //can only end there but not continue
 //         else
-//             visitedStart.Add s.Start |> ignore
+//             let v2 = visitedStart.Add s.Start
 //             //find all paths where we can go
 //             match segmentsByStart |> Map.tryFind s.End with
 //             | None -> [ s ] |> List.singleton //no paths from here
 //             | Some segments ->
 //                 segments
 //                 |> List.collect (fun nextSegment ->
-//                     loop nextSegment
-//                     |> List.map (fun p -> nextSegment::p)
+//                     loop v2 nextSegment
+//                     |> List.choose (fun p ->
+//                         //filter out returning steps (there may be some to starts of slopes)
+//                         match p with
+//                         | [] -> [ s ] |> Some
+//                         | head::_ ->
+//                             if head.ConnectingCoords
+//                                |> List.exists (fun c -> s.ConnectingCoords |> List.contains c) then
+//                                    None
+//                             else
+//                                 s::p |> Some
+//                         )
 //                     )
+//                 // segments
+//                 // |> List.collect (fun nextSegment ->
+//                 //     loop v2 nextSegment
+//                 //     |> List.map (fun p -> s::p))    
 //     
 //     segmentsByStart
 //     |> Map.find start
-//     |> List.collect loop
-//
-
-
-let getAllPaths (segments: PathSegment list) (start: int * int) =
+//     |> List.collect (loop Set.empty)
+    
+    
+let getAllPaths (segments: PathSegment list) (target: int * int) (start: int * int) =
         
     let segmentsByStart = segments |> List.groupBy _.Start |> Map.ofList
-
-    let visitedStart = HashSet<int * int>()
-
-    let rec loop (s: PathSegment) : Path list =
-        if visitedStart.Contains s.End then
-            [ s ] |> List.singleton //can only end there but not continue TODO allows cycles! fix
+    
+    let rec loop visitedStart (s: PathSegment) : Path list =
+        if s.End = target then [ s ] |> List.singleton
         else
-            visitedStart.Add s.Start |> ignore
+        //printfn $"Checking %A{s.Start} - %A{s.End}"
+        if visitedStart |> Set.contains s.End then
+            [ ] //loop, don't go there
+        else
+            let v2 = visitedStart.Add s.Start
             //find all paths where we can go
             match segmentsByStart |> Map.tryFind s.End with
-            | None -> [ s ] |> List.singleton //no paths from here
+            | None ->
+          //      printfn $"FOUND END IN %A{s.Start} - %A{s.End}"
+                [ s ] |> List.singleton //no paths from the end
             | Some segments ->
                 segments
                 |> List.collect (fun nextSegment ->
-                    loop nextSegment
+                    loop v2 nextSegment
                     |> List.choose (fun p ->
                         //filter out returning steps (there may be some to starts of slopes)
                         match p with
                         | [] -> [ s ] |> Some
+                        //TODO here head is nextSegment!!!
                         | head::_ ->
                             if head.ConnectingCoords
                                |> List.exists (fun c -> s.ConnectingCoords |> List.contains c) then
@@ -227,31 +183,124 @@ let getAllPaths (segments: PathSegment list) (start: int * int) =
                                 s::p |> Some
                         )
                     )
+                // segments
+                // |> List.collect (fun nextSegment ->
+                //     loop v2 nextSegment
+                //     |> List.map (fun p -> s::p))    
     
     segmentsByStart
     |> Map.find start
-    |> List.collect loop
+    |> List.collect (loop Set.empty)    
     
+inputGrid[0].Length    
+    
+//94 for PART 1    
+//154 for PART 2
+let solve grid start =
+    let segments = parsePathSegments grid start |> List.distinct
+    let target = grid.Length - 1, grid[0].Length - 2 
+    let allPaths = getAllPaths segments start target
+    //let target = segments |> List.map (_.End) |> List.maxBy (fun (x,y) -> x + y)
+    printfn $"TARGET = %A{target}, segment count = %A{segments |> List.length}"
+    
+    //allPaths
+    //
+    let longestPath = 
+        allPaths//TODO paths are reversed
+        // |> List.where (fun p ->
+        //     p |> List.last |> (fun x -> x.End = target)
+        //     )
+        |> List.map (fun p ->
+            p
+            |> List.collect (fun s ->
+                [
+                    yield s.Start
+                    yield! s.ConnectingCoords
+                    yield s.End
+                ]
+                )
+            |> List.distinct
+            |> List.length
+            )
+        |> List.max    
+    longestPath - 1 // -1 because we are already at start
+    //
+    //
+
+//PART 2 6574, calculated in 53m 29s
+//TODO optimize - do not gather all segments, just longest path when looking for target
+// TODO optimize 2 - try caching the results, has to be smarter (cannot just include all visitedStarts, since those will differ)
+//      but it 
+solve inputGrid (0,1)// |> List.length
+//
+// let p = solve inputGrid (0,1)
+// // p |> List.where (fun x -> x |> List.last |> (fun x -> x.End = (22,21)))
+// //
+// //     
+// // p |> List.length
+// //
+// //     
+// // p |> List.map (fun li -> li |> List.map (fun x -> x.Start, x.End)) |> List.last
+// //
+// //     
+// //     
+// p |> List.where (fun x -> x |> List.exists (fun li -> li.End = (22,21)))
+// // //
+// let segments = parsePathSegments inputGrid (0,1) |> List.distinct
+// let paths = getAllPaths segments (0,1) (22,21)
+// paths
+// |> List.map (fun p ->
+//         p
+//         |> List.collect (fun s ->
+//             [
+//                 yield s.Start
+//                 yield! s.ConnectingCoords
+//                 yield s.End
+//             ]
+//             )
+//         |> List.distinct
+//         |> List.length
+//         )
+//     |> List.max    
+//
+// paths|> List.map (fun li -> li |> List.map (fun x -> x.Start, x.End)) |> List.head    
+    
+// let segmentsByStart = segments |> List.groupBy _.Start |> Map.ofList
+// segmentsByStart |> Map.find (13,13) |> List.length
+// segmentsByStart |> Map.find (22,21) |> List.length
+//
+// segmentsByStart |> Map.find (22,21)
+//
+// let target = segments |> List.map (_.End) |> List.maxBy (fun (x,y) -> x + y)
+// segments |> List.length
+// segments |> List.where (fun s -> s.End = (22,21)) |> List.length
+// segments |> List.where (fun s -> s.Start = (22,21)) |> List.length
+//
+// let segmentsByStart = segments |> List.groupBy _.Start |> Map.ofList
+//
+// collectPathCoordinates inputGrid (19,19)
+//     
+// //TODO every segment is here twice, parse is incorrect somehow    
+// parsePathSegments inputGrid (0,1) |> List.length
+// parsePathSegments inputGrid (0,1) |> List.distinct |> List.length
+
+    
+// let aaa = p |> List.head
+// aaa |> List
 
 
+//
+// collectPathCoordinates inputGrid (0,1)
+// collectPathCoordinates inputGrid (5,3) //missing 6,3
+// collectPathCoordinates inputGrid (13,5)
 
-let allPaths = getAllPaths segments start
-allPaths |> List.head
-
-let target = segments |> List.map (_.End) |> List.maxBy (fun (x,y) -> x + y)
-
-
-let longestPath = 
-    allPaths
-    |> List.where (fun p ->
-        p |> List.last |> (fun x -> x.End = target)
-        )
-    |> List.map (fun p -> p |> List.map _.Length |> List.sum)
-    |> List.max
     //|> List.maxBy (fun p -> p |> List.map (_.Length) |> List.sum)
 
-//TODO I don't see why :(  somewhere I have off by one error
-let result = longestPath - 1 //PART 1 2626
+//TODO I don't see why :(  somewhere I have off by one errorc
+//let result = longestPath - 1 //PART 1 2626
+
+// PART 2 SAMPLE is 154! so -2 against mine...
+// 4619 printed, 4618 TOO LOW, 4619 TOO LOW
 
 // let longestPath2 = 
 //     allPaths
