@@ -230,7 +230,7 @@ let solve grid start =
 //PART 2 6574, calculated in 53m 29s
 //TODO optimize - do not gather all segments, just longest path when looking for target
 // TODO optimize 2 - try caching the results, has to be smarter (cannot just include all visitedStarts, since those will differ)
-//      but it 
+//      but it should be possible to get longest path that does not use any visited  
 solve inputGrid (0,1)// |> List.length
 //
 // let p = solve inputGrid (0,1)
