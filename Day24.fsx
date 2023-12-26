@@ -17,7 +17,9 @@ let multiplyVector (v1: Vector) (n: int64) =
     let x1, y1, z1 = v1
     x1*n, y1*n, z1*n
     
-  
+let divideVector (v1: Vector) (n: int64) =
+    let x1, y1, z1 = v1
+    x1/n, y1/n, z1/n
 
 type Hailstone = {
     Position: Vector
@@ -133,8 +135,8 @@ let solve1 filename testAreaMin testAreaMax =
             
     
     
-solve1 "inputs/testData24" 7. 27.
-solve1 "inputs/input24" 200000000000000. 400000000000000.
+// solve1 "inputs/testData24" 7. 27.
+// solve1 "inputs/input24" 200000000000000. 400000000000000.
 
 
 // PART 2
@@ -172,7 +174,17 @@ let rock =
         Velocity = v 
     }
     
-moveInTime rock -4 // (24L, 13L, 10L) (-3L, 1L, 2L) } 
+moveInTime rock -4 // (24L, 13L, 10L) (-3L, 1L, 2L) }
+
+
+let rock2 =
+    let v = subtractVectors h6Collision.Position h4Collision.Position
+    {
+        Position = h4Collision.Position
+        Velocity = divideVector v 2 
+    }
+    
+moveInTime rock2 -4    
 
 
 
@@ -201,20 +213,12 @@ let isValid (hailStones: Hailstone array) (rock: Hailstone) =
     hailStones |> Array.iter (fun x -> livingHailstones.Add x |> ignore)
     let rockLine = rock |> hailstoneLine
     
-    let maxTime = 500
+    let maxTime = 5000
     let mutable time = 0
     let mutable futureValid = true
     while livingHailstones.Count > 0 && time < maxTime && futureValid do
         time <- time + 1
         let rockInTime = moveInTime rock time
-        if time % 20 = 0 then
-            futureValid <-
-                livingHailstones
-                |> Seq.forall (fun h ->
-                    match lineIntersection rockLine (hailstoneLine h) with
-                    | None -> false
-                    | Some i -> isFuturePosition rockInTime i 
-                    )
         
         let rockPosition = rockInTime.Position
         livingHailstones
@@ -225,6 +229,20 @@ let isValid (hailStones: Hailstone array) (rock: Hailstone) =
             if (moveInTime h time).Position = rockPosition then
                 livingHailstones.Remove h |> ignore
             )
+        
+        //check if all remaining are still possible targets
+        if time = 1 || (time % 20 = 0) then
+            futureValid <-
+                livingHailstones
+                |> Seq.forall (fun h ->
+                    match lineIntersection rockLine (hailstoneLine h) with
+                    | None -> false
+                    | Some i ->
+                        // if rock.Velocity = (-3,1,2) then
+                        //     printfn $"rockInTime %i{time}, position {rock.Position}, intersection %A{i}, h = %A{h}, isFuturePosition = {isFuturePosition rockInTime i} "
+                        isFuturePosition rockInTime i 
+                    )        
+        
    // livingHailstones |> Seq.map id |> Array.ofSeq
     
     livingHailstones.Count = 0
@@ -251,16 +269,11 @@ let isValid (hailStones: Hailstone array) (rock: Hailstone) =
 //     livingHailstones.Count < 150   
     
     
-
+//step - how many nanoseconds ellapsed between the assumed collisions
 let candidates previousCollision nextCollision =
+    let step = nextCollision - previousCollision
     let stopwatch = Stopwatch()
     stopwatch.Start()
-    // let firstPosition = 299
-    // let lastPosition = 300
-    
-    // 299 and 300 found nothing
-    // let previousCollision = lines.Length - 1
-    // let nextCollision = lines.Length
     
     seq {
         for i in [0..lines.Length - 1] do
@@ -270,23 +283,27 @@ let candidates previousCollision nextCollision =
                 let jInNextCollision = moveInTime hailstones[j] nextCollision
                 let jInPrevCollision = moveInTime hailstones[j] previousCollision
                 
+                let v1 = subtractVectors jInNextCollision.Position iInPrevCollision.Position
                 let c1 =
                     {
                         Position = iInPrevCollision.Position
-                        Velocity = subtractVectors jInNextCollision.Position iInPrevCollision.Position 
+                        Velocity = divideVector v1 step
+                            
                     }
                 yield moveInTime c1 (int64 -previousCollision)
                     
+                let v2 = subtractVectors iInNextCollision.Position jInPrevCollision.Position
                 let c2 = 
                     {
                         Position = jInPrevCollision.Position
-                        Velocity = subtractVectors iInNextCollision.Position jInPrevCollision.Position 
+                        Velocity =  divideVector v2 step 
                     }                    
                 yield moveInTime c2 (int64 -previousCollision)
     }
     |> Seq.indexed
     |> Seq.where (fun (i,c) ->
-        if i % 10000 = 0 then printfn $"Checking candidate %A{i}, time elapsed %A{stopwatch.Elapsed}"
+        // if i % 50000 = 0 then
+        //     printfn $"times between [{previousCollision}] and [{nextCollision}], checking candidate %A{i}, time elapsed %A{stopwatch.Elapsed}"
         
         intersectsAll lines (hailstoneLine c)
         //&& isPossible hailstones c
@@ -301,7 +318,11 @@ let candidates previousCollision nextCollision =
     |> Seq.tryHead
     
     
-//candidates 4 5
+// NOTE: it should be enough to find TWO times when the collisions happen and the candidates will find solution    
+// candidates 4 5
+// candidates 4 6
+// candidates 1 6
+// candidates 1 3
 
 // let rockInTime = moveInTime rock -4 
 //
@@ -310,15 +331,166 @@ let candidates previousCollision nextCollision =
 //TODO possible optimization - move everything 300x and see what is relatively close    
 //candidates 299 300        
 
-for i in [150..160] do
-    for step in [1..5] do
-        let prev = i
-        let next = i + step
-        printfn $"Checking steps %i{prev} and %i{next}"
-        
-        let result = candidates prev next
-        printfn $"Steps %i{prev} and %i{next} result = %A{result}"
+//NOTE STEP other than 1ms does not work!
+// for i in [150..160] do
+//     for step in [1..5] do
+//         let prev = i
+//         let next = i + step
+//         printfn $"Checking steps %i{prev} and %i{next}"
+//         
+//         let result = candidates prev next
+//         printfn $"Steps %i{prev} and %i{next} result = %A{result}"
 
+
+
+// let result = 
+//     Array.init 250 (fun i -> Array.init 250 (fun j -> (i + 1, i + j + 2)))
+//     |> Array.concat
+//     |> Array.Parallel.choose (fun (prev, next) ->
+//        // printfn $"Checking steps %i{prev} and %i{next}"
+//             
+//         let result = candidates prev next
+//         printfn $"Steps %i{prev} and %i{next} result = %A{result}"
+//         result
+//         )
+// printfn $"RESULT = %A{result}"
+
+
+let guessRock (h1: Hailstone) (h2: Hailstone) time1 time2 =
+    let step = time2 - time1
+    let h1Collision = moveInTime h1 time1
+    let h2Collision = moveInTime h2 time2
+    let v = subtractVectors h2Collision.Position h1Collision.Position
+    let rockInCollistion =
+        {
+            Position = h2Collision.Position
+            Velocity = divideVector v step
+        }
+    moveInTime rockInCollistion -time2
+    
+//validates that rock hits hailstone
+let validateRock (hailstone: Hailstone) (rock: Hailstone) =
+    match lineIntersection (hailstoneLine hailstone) (hailstoneLine rock) with
+    | None -> false
+    | Some intersection -> 
+        if isFuturePosition hailstone intersection |> not
+            then false
+        elif isFuturePosition rock intersection |> not
+            then false
+        else
+            let intersectionX, intersectionY = intersection
+            let rockX, _, _ = rock.Position
+            let rockVx, _, _ = rock.Velocity
+            //just for validation
+            let hailX, _, _ = hailstone.Position
+            let hailVx, _, _ = hailstone.Velocity
+            //TODO what if the time is not integer? that would be bad :(
+            let rockTime = (intersectionX - float rockX) /  float rockVx
+            let hailTime = (intersectionX - float hailX) /  float hailVx
+        //    printfn $"AAAAAA %A{intersectionX}, %A{intersectionY}, rockTime %A{rockTime}, hailTime %A{hailTime}"
+            let rockCollision = moveInTime rock (int64 rockTime)
+            let hailCollision = moveInTime hailstone (int64 rockTime)
+            rockCollision.Position = hailCollision.Position
+            
         
     
+    
+// Position = (24L, 13L, 10L), Velocity = (-3L, 1L, 2L) }
+// collision 4 - (12,17)
+// T = (12-24)/-3 = -12/-3 = -4
+// guessRock h5 h6 5 6 |> validateRock h4
+// guessRock h4 h5 4 5 |> validateRock h6
+// guessRock h4 h6 4 6 |> validateRock h5
+//
+// guessRock h4 h6 1 6 |> validateRock h5
+        
+let hailstoneDistances =
+    hailstones
+    |> Array.allPairs hailstones
+    |> Array.where (fun (x,y) -> x <> y)
+    |> Array.map (fun (x,y) ->
+        let xx, xy, xz = x.Position
+        let yx, yy, yz = y.Position
+        (Math.Sqrt(Math.Pow(float xx - float yx, 2) + Math.Pow(float xy- float yy, 2) + Math.Pow(float xz - float yz, 2)),
+         Math.Abs (xx - xy),
+         Math.Abs (xy - yy), x, y)
+    )
+    |> Array.sortBy (fun (a,b,c,d,e) ->
+        a
+        )
+    
+//hailstoneDistances[0]
+        
+let findRock msChecked =
+    let stopwatch = Stopwatch()
+    stopwatch.Start()        
+    
+    //TODO get some that are close and one that is farther to validate
+    // let h1 = hailstones[0]
+    // let h2 = hailstones[1]
+    let a,b,c,d,e = hailstoneDistances[0]
+    let h1 = d
+    let h2 = e
+    let hControl = hailstones[2]
+    //let msChecked = 10000
+    let mutable cnt = 0
+    
+    guessRock h1 h2 1 20000000
+    
+    //TODO there is more than one solution for testData :( for the first equation checking...
+    //guessRock h1 h2 5 2 |> validateRock hControl
+    
+    //guessRock h1 h2 5 3 |> validateRock hControl
+    // let a =
+    //     Seq.allPairs (Seq.init 5 (fun i -> i+1)) (Seq.init 5 (fun i-> i+1))
+    //     |> Array.ofSeq
+
+    Seq.allPairs (Seq.init msChecked (fun i -> i+1)) (Seq.init msChecked (fun i -> i+1))
+    |> Seq.choose (fun (i,j) ->
+        //if ((i + j) % 10000 = 0) then
+        cnt <- cnt + 1
+        if (cnt % 1000000 = 0) then
+            printfn $"Time %A{stopwatch.Elapsed} checking %i{i},%i{j}"
+        if i = j then
+            None
+        else
+            let r = guessRock h1 h2 i j
+            if r |> validateRock hControl then
+                printfn $"i = %i{i}, j = %i{j}"
+                Some r
+                    else
+                None
+        )
+    //TODO optimize isValid
+    |> Seq.where (fun rock ->
+        printfn $"Checking suspicious rock: %A{rock}"
+        isValid hailstones rock
+        ) 
+//    |> Seq.toArray
+    
+
+// let arr = 
+//     findRock 100000
+//     |> Seq.map (fun r ->
+//         printfn $"ROCK %A{r}"
+//         r
+//     )
+//     |> Array.ofSeq
+//
+// let sums = arr |> Array.map (fun r ->
+//     let x,y,z = r.Position
+//     x+y+z
+//     )
+
+    
+
+//TOO HIGH - idiot me, that was control stone, not result
+//293577250654200L + 176398758803665L + 272206447651388L
+    
+(*
+val hControl: Hailstone =
+  { Position = (293577250654200L, 176398758803665L, 272206447651388L)
+    Velocity = (-17L, 101L, 26L) }
+
+*)    
     
